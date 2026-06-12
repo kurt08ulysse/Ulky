@@ -116,17 +116,38 @@ L'implémentation de la Phase 2 côté backend est achevée, validée par des te
 
 ---
 
+## ✅ Étape 5 : Paiement Mobile Money (SingPay) et Quittance (Terminé)
+
+L'implémentation de la Phase 3 est terminée, tant pour la partie backend que frontend :
+- [x] **Schéma de Données** :
+  - Création de la table `payments` pour tracer chaque tentative (opérateur, téléphone, montant, référence, statut).
+  - Création de la table `receipts` stockant le numéro séquentiel unique, le chemin du PDF et le jeton de sécurité du QR code.
+  - Création de la table `receipt_counters` gérant les compteurs annuels par commune de manière atomique.
+- [x] **Génération Séquentielle Sans Trou** :
+  - Utilisation de `lockForUpdate()` dans une transaction SQL pour garantir une numérotation continue (format `Q-COMMUNE-ANNEE-NUMERO`) même lors de requêtes concurrentes.
+- [x] **Intégration de l'API SingPay** :
+  - Service `SingPayService` configuré avec le Wallet ID réel `6a1f8d3b7ed7ede7c4e71e64`.
+  - Intégration des endpoints opérateurs Airtel Money (`74`) et Moov Money (`62`).
+- [x] **Vérification Publique & QR Code** :
+  - Intégration d'un QR code sur la quittance PDF pointant vers une route publique `/verify/receipt/{token}`.
+  - Développement de la page web publique d'authenticité et d'un bouton de téléchargement direct du PDF quittance (contournant les contraintes JWT Clerk sur mobile).
+- [x] **Webhook et Réconciliation** :
+  - Endpoint `POST /api/webhooks/singpay` géré par `SingPayWebhookController` pour passer automatiquement les avis de taxes en `paid` dès réception du callback de SingPay.
+- [x] **Intégration Mobile (Expo)** :
+  - Service `taxService.ts` et hook `usePayTaxNotice` ajoutés.
+  - Écran `TaxesScreen.tsx` mis à jour pour choisir l'opérateur (Airtel/Moov), saisir le numéro de téléphone, afficher l'attente du code secret (Push USSD), et présenter le bouton "Voir & Télécharger le reçu".
+- [x] **Qualité et Déploiement** :
+  - Tous les 26 tests backend (78 assertions) passent avec succès.
+  - Le frontend compile sans aucune erreur TypeScript (`npx tsc --noEmit` OK).
+  - Code poussé sur GitHub et synchronisé sur la VM de staging. Configuration du `.env` de production avec le SingPay Wallet ID complétée.
+
+---
+
 ## 🚀 Prochaines Étapes (À faire)
 
-- [ ] **Secrets GitHub** : Configurer les secrets sur GitHub pour activer la CI/CD automatique :
-  - `VM_SSH_PRIVATE_KEY` : *(Coller la clé privée OpenSSH ci-dessus)*
-  - `VM_TAILSCALE_IP` : `100.68.232.112`
-  - `VM_SSH_USER` : `bradley`
-  - `TAILSCALE_OAUTH_CLIENT_ID`
-  - `TAILSCALE_OAUTH_CLIENT_SECRET`
-- [ ] **Déploiement sur Staging** :
-  - Synchroniser les modifications sur la VM de staging (`git pull`).
-  - Lancer les migrations et seeders sur Neon : `php artisan migrate --force && php artisan db:seed --force`.
-- [ ] **Intégration Frontend (Expo)** :
-  - Créer le service d'appel API `taxService.ts` et le hook React Query `useTaxes.ts` (requêtant `/api/v1/tax-notices`).
-  - Développer l'écran `TaxesScreen.tsx` affichant le total dû et la liste détaillée des avis (Base + Timbre) pour le citoyen connecté.
+- [ ] **Tests manuels bout-en-bout (Staging)** :
+  - Tester les paiements fictifs via l'URL publique `https://stocks-picking-easter-band.trycloudflare.com` avec SingPay en mode sandbox/réel.
+  - Valider la réception du webhook et la génération de la quittance PDF dans le dossier `storage/app/public/receipts/`.
+- [ ] **Phase 4 : Tableau de bord régisseur** :
+  - Concevoir l'interface d'administration pour les agents de mairie / régisseurs (visualisation des recettes, recherche de quittances, états financiers).
+
