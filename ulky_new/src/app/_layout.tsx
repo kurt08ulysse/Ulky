@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -12,11 +12,30 @@ const queryClient = new QueryClient();
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_bWVycnktZXdlLTk5LmNsZXJrLmFjY291bnRzLmRldiQ';
 
-const tokenCache = {
+const tokenCache = Platform.OS === 'web' ? {
+  getToken: async (key: string) => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  saveToken: async (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
+  },
+  clearToken: async (key: string) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  }
+} : {
   getToken: (key: string) => SecureStore.getItemAsync(key),
   saveToken: (key: string, value: string) => SecureStore.setItemAsync(key, value),
   clearToken: (key: string) => SecureStore.deleteItemAsync(key),
 };
+
 
 function RootLayoutNav() {
   const { hydrate, isHydrating } = useAuthStore();
