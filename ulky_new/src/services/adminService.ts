@@ -1,6 +1,6 @@
 import { api, BACKEND_API_URL } from '@/services/api';
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 // ─── Types ───────────────────────────────────────────────────────────────────

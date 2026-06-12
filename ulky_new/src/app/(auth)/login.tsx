@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
-import { useSignIn, useSignUp, useSSO } from '@clerk/expo';
+import { useSignIn, useSignUp, useSSO, useClerk } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -63,9 +63,11 @@ export default function LoginScreen() {
   const [pendingVerification, setPendingVerification] = useState(false);
 
   // Clerk hooks
-  const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
-  const { signUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
+  const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
   const { startSSOFlow } = useSSO();
+  const clerk = useClerk();
+  const isLoaded = clerk.loaded;
 
   // Form states
   const [email, setEmail] = useState('');
@@ -127,7 +129,7 @@ export default function LoginScreen() {
   // Connexion Classique (Email/Password)
   async function handleSignIn() {
     console.log('Initiating Email Sign-In...', { email });
-    if (!isSignInLoaded) {
+    if (!isLoaded || !signIn) {
       console.warn('Clerk SignIn is not loaded yet');
       return;
     }
@@ -137,20 +139,24 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const completeSignIn = await signIn.create({
-        identifier: email,
+      const normalizedEmail = email.trim().toLowerCase();
+      const { error } = await signIn.create({
+        identifier: normalizedEmail,
         password,
       });
-      console.log('SignIn result:', completeSignIn.status);
-      if (completeSignIn.status === 'complete') {
-        await setSignInActive({ session: completeSignIn.createdSessionId });
+      if (error) {
+        throw error;
+      }
+      console.log('SignIn result:', signIn.status);
+      if (signIn.status === 'complete') {
+        await clerk.setActive({ session: signIn.createdSessionId });
         router.replace('/(app)');
       } else {
-        showAlert('Connexion', `Statut incomplet : ${completeSignIn.status}`);
+        showAlert('Connexion', `Statut incomplet : ${signIn.status}`);
       }
     } catch (error: any) {
       console.error('Email Sign-In Error:', error);
-      const message = error.errors?.[0]?.message || 'Identifiants incorrects. Veuillez réessayer.';
+      const message = error.longMessage || error.message || 'Identifiants incorrects. Veuillez réessayer.';
       showAlert('Échec de la connexion', message);
     } finally {
       setLoading(false);
@@ -160,7 +166,7 @@ export default function LoginScreen() {
   // Inscription (Email/Password)
   async function handleSignUp() {
     console.log('Initiating Email Sign-Up...', { signUpEmail });
-    if (!isSignUpLoaded) {
+    if (!isLoaded || !signUp) {
       console.warn('Clerk SignUp is not loaded yet');
       return;
     }
@@ -170,19 +176,26 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const result = await signUp.create({
-        emailAddress: signUpEmail,
+      const normalizedSignUpEmail = signUpEmail.trim().toLowerCase();
+      const { error } = await signUp.create({
+        emailAddress: normalizedSignUpEmail,
         password: signUpPassword,
         firstName: signUpFirstName,
         lastName: signUpLastName,
       });
-      console.log('SignUp create result:', result.status);
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      if (error) {
+        throw error;
+      }
+      console.log('SignUp create result:', signUp.status);
+      const { error: verifyError } = await signUp.verifications.sendEmailCode();
+      if (verifyError) {
+        throw verifyError;
+      }
       console.log('Email verification prepared');
       setPendingVerification(true);
     } catch (error: any) {
       console.error('Email Sign-Up Error:', error);
-      const message = error.errors?.[0]?.message || "L'inscription a échoué. Veuillez réessayer.";
+      const message = error.longMessage || error.message || "L'inscription a échoué. Veuillez réessayer.";
       showAlert("Échec de l'inscription", message);
     } finally {
       setLoading(false);
@@ -192,26 +205,69 @@ export default function LoginScreen() {
   // Vérification de l'email
   async function handleVerifyCode() {
     console.log('Attempting to verify email code...');
-    if (!isSignUpLoaded) return;
+    if (!isLoaded || !signUp) return;
+
+    // Si l'e-mail est déjà marqué comme vérifié sur Clerk, on active directement la session
+    if (signUp.verifications.emailAddress.status === 'verified') {
+      console.log('Email already verified. Finalizing session...');
+      if (signUp.status === 'complete' && signUp.createdSessionId) {
+        setLoading(true);
+        try {
+          await clerk.setActive({ session: signUp.createdSessionId });
+          router.replace('/(app)');
+          return;
+        } catch (activeErr: any) {
+          console.error('Error activating session:', activeErr);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+
     if (!verificationCode) {
       showAlert('Champs requis', 'Veuillez saisir le code de vérification reçu par e-mail.');
       return;
     }
     setLoading(true);
     try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({
+      const { error } = await signUp.verifications.verifyEmailCode({
         code: verificationCode,
       });
-      console.log('Verification result:', completeSignUp.status);
-      if (completeSignUp.status === 'complete') {
-        await setSignUpActive({ session: completeSignUp.createdSessionId });
+      if (error) {
+        throw error;
+      }
+      console.log('Verification result:', signUp.status);
+      if (signUp.status === 'complete') {
+        await clerk.setActive({ session: signUp.createdSessionId });
         router.replace('/(app)');
       } else {
-        showAlert('Vérification', `Statut : ${completeSignUp.status}`);
+        console.log('DEBUG missing requirements:', {
+          missingFields: signUp.missingFields,
+          unverifiedFields: signUp.unverifiedFields,
+          requiredFields: signUp.requiredFields
+        });
+        const missingNames = signUp.missingFields ? signUp.missingFields.join(', ') : '';
+        showAlert('Vérification', `Statut : ${signUp.status}. Champs requis restants : ${missingNames}`);
       }
     } catch (error: any) {
       console.error('Verification Code Error:', error);
-      const message = error.errors?.[0]?.message || 'Code incorrect. Veuillez réessayer.';
+
+      // Si l'inscription est complète ou l'email vérifié mais que Clerk lève une erreur (ex: déjà vérifié)
+      if (
+        (signUp.status === 'complete' || signUp.verifications.emailAddress.status === 'verified') &&
+        signUp.createdSessionId
+      ) {
+        console.log('Verification was already completed. Finalizing session from catch block...');
+        try {
+          await clerk.setActive({ session: signUp.createdSessionId });
+          router.replace('/(app)');
+          return;
+        } catch (activeErr) {
+          console.error('Error activating session in catch:', activeErr);
+        }
+      }
+
+      const message = error.longMessage || error.message || 'Code incorrect. Veuillez réessayer.';
       showAlert('Erreur de validation', message);
     } finally {
       setLoading(false);
@@ -349,9 +405,10 @@ export default function LoginScreen() {
 
               <Pressable
                 onPress={handleVerifyCode}
+                disabled={loading}
                 style={({ pressed }) => ({
                   width: '100%',
-                  backgroundColor: colors.secondary,
+                  backgroundColor: loading ? colors.border : colors.secondary,
                   borderRadius: 8,
                   paddingVertical: 14,
                   alignItems: 'center',
@@ -450,11 +507,17 @@ export default function LoginScreen() {
                 secureTextEntry
               />
 
+              {/* Conteneur Captcha pour Clerk Web Bot Protection */}
+              {Platform.OS === 'web' && (
+                <View id="clerk-captcha" nativeID="clerk-captcha" style={{ marginVertical: 8, alignSelf: 'center' }} />
+              )}
+
               <Pressable
                 onPress={handleSignUp}
+                disabled={loading}
                 style={({ pressed }) => ({
                   width: '100%',
-                  backgroundColor: colors.secondary,
+                  backgroundColor: loading ? colors.border : colors.secondary,
                   borderRadius: 8,
                   paddingVertical: 14,
                   alignItems: 'center',
@@ -556,9 +619,10 @@ export default function LoginScreen() {
 
               <Pressable
                 onPress={handleSignIn}
+                disabled={loading}
                 style={({ pressed }) => ({
                   width: '100%',
-                  backgroundColor: colors.secondary,
+                  backgroundColor: loading ? colors.border : colors.secondary,
                   borderRadius: 8,
                   paddingVertical: 14,
                   alignItems: 'center',

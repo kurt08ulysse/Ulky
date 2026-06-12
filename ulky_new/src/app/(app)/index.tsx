@@ -9,40 +9,29 @@ import { useTaxNotices } from '@/hooks/useTaxes';
 import { colors, spacing, typography, shadows } from '@/theme';
 import { Card, Badge } from '@/components';
 
-// Couleurs personnalisées inspirées des couleurs nationales (Vert, Jaune, Bleu) avec des tons premium
+// Couleurs de la charte de Franceville et du Gabon
 const customColors = {
-  gabonGreen: '#0C5C36',      // Vert forêt élégant
-  gabonYellow: '#F2B705',     // Jaune d'or/or chaud
-  gabonBlue: '#0D3C9B',       // Bleu royal profond
-  gabonLightBlue: '#E6EEFF',  // Bleu très clair pour fond de cartes
-  gabonLightGreen: '#E6F4EA', // Vert très clair pour fond de cartes
-  gabonLightYellow: '#FFF8E1' // Jaune très clair pour fond de cartes
+  gabonGreen: '#009E60',
+  gabonYellow: '#FCD116',
+  gabonBlue: '#3A75C4',
+  primary: '#001e40',          // Bleu très foncé identitaire
+  secondary: '#496177',        // Bleu-gris
+  background: '#f9f9f9',       // Gris très clair
+  surface: '#ffffff',          // Blanc
+  border: '#c3c6d1',           // Gris-bleu bordures
+  textPrimary: '#1a1c1c',
+  textSecondary: '#43474f',
+  errorContainer: '#ffdad6',
+  onErrorContainer: '#93000a',
+  successContainer: '#E6F4EA',
+  warningContainer: '#FFF8E1'
 };
-
-function getStatusDetails(status: string, dueDateStr: string) {
-  if (status === 'paid') {
-    return { label: '✓ Payé', variant: 'success' as const };
-  }
-  if (status === 'cancelled') {
-    return { label: '✕ Annulé', variant: 'primary' as const };
-  }
-  
-  const dueDate = new Date(dueDateStr);
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  
-  if (dueDate < today) {
-    return { label: '⚠️ En retard', variant: 'error' as const };
-  }
-  
-  return { label: '⏳ En attente', variant: 'warning' as const };
-}
 
 export default function HomeScreen() {
   const { user } = useUser();
   const router = useRouter();
   
-  const { data: currentUser, isLoading: isLoadingUser } = useQuery({
+  const { data: currentUser } = useQuery({
     queryKey: ['me'],
     queryFn: getMe,
   });
@@ -57,374 +46,427 @@ export default function HomeScreen() {
     year: 'numeric',
   });
 
-  // Filtrer les avis en attente pour le tableau de bord
+  // Filtrer les avis en attente pour le bandeau d'alerte
   const pendingNotices = notices?.filter(notice => notice.status === 'pending') ?? [];
-  const hasOverdue = pendingNotices.some(notice => {
-    const dueDate = new Date(notice.due_date);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    return dueDate < today;
-  });
-
-  const isLoading = isLoadingUser || isLoadingNotices;
-
-  // Calcul du prénom/initiale pour l'avatar
   const firstName = currentUser?.name?.split(' ')[0] ?? user?.firstName ?? 'Citoyen';
-  const initials = firstName.charAt(0).toUpperCase();
 
   return (
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: colors.background.subtle,
+        backgroundColor: customColors.background,
       }}
       contentContainerStyle={{
-        paddingBottom: spacing.xl,
+        paddingBottom: spacing.xl * 2,
       }}
+      showsVerticalScrollIndicator={false}
     >
-      {/* ─── EN-TÊTE PREMIUM (HEADER LARGE) ─── */}
+      {/* Drapeau du Gabon en bordure supérieure */}
+      <View style={{ height: 4, flexDirection: 'row' }}>
+        <View style={{ flex: 1, backgroundColor: customColors.gabonGreen }} />
+        <View style={{ flex: 1, backgroundColor: customColors.gabonYellow }} />
+        <View style={{ flex: 1, backgroundColor: customColors.gabonBlue }} />
+      </View>
+
+      {/* ─── BARRE DE NAVIGATION SUPÉRIEURE (HEADER) ─── */}
       <View
         style={{
-          backgroundColor: customColors.gabonBlue,
-          borderBottomLeftRadius: 24,
-          borderBottomRightRadius: 24,
+          backgroundColor: customColors.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: `${customColors.border}80`,
           paddingHorizontal: spacing.lg,
-          paddingTop: Platform.OS === 'ios' ? 64 : 48,
-          paddingBottom: spacing.xl,
-          ...shadows.medium,
-          position: 'relative',
+          paddingVertical: spacing.md,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          ...shadows.subtle,
         }}
       >
-        {/* Bandeau supérieur décoratif avec les couleurs nationales (fine ligne discrète sous le status bar) */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, flexDirection: 'row' }}>
-          <View style={{ flex: 1, backgroundColor: customColors.gabonGreen }} />
-          <View style={{ flex: 1, backgroundColor: customColors.gabonYellow }} />
-          <View style={{ flex: 1, backgroundColor: customColors.gabonBlue }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: '#d5e3ff',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Ionicons name="business" size={18} color={customColors.primary} />
+          </View>
+          <View>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: customColors.primary }}>
+              Mairie de Franceville
+            </Text>
+            <Text style={{ fontSize: 10, color: customColors.secondary }}>
+              Portail Officiel
+            </Text>
+          </View>
         </View>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            {/* Avatar circulaire */}
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: customColors.gabonYellow,
-                justifyContent: 'center',
-                alignItems: 'center',
-                borderWidth: 2,
-                borderColor: '#FFFFFF',
-              }}
-            >
-              <Text style={{ ...typography.button, color: customColors.gabonBlue, fontWeight: '700' }}>
-                {initials}
-              </Text>
-            </View>
-
-            <View>
-              <Text style={{ ...typography.h3, color: colors.text.inverse }}>
-                Bonjour, {firstName}
-              </Text>
-              <Text style={{ ...typography.caption, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>
-                {dateString}
-              </Text>
-            </View>
-          </View>
-
-          {/* Bouton de Notification interactif */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Pressable
             accessibilityLabel="Notifications"
             accessibilityRole="button"
             style={({ pressed }) => ({
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: customColors.background,
               justifyContent: 'center',
               alignItems: 'center',
               opacity: pressed ? 0.8 : 1,
             })}
           >
-            <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+            <Ionicons name="notifications" size={20} color={customColors.secondary} />
             {pendingNotices.length > 0 && (
               <View
                 style={{
                   position: 'absolute',
-                  top: 10,
-                  right: 10,
-                  width: 10,
-                  height: 10,
-                  borderRadius: 5,
-                  backgroundColor: colors.error[600],
-                  borderWidth: 1.5,
-                  borderColor: customColors.gabonBlue,
+                  top: 8,
+                  right: 8,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: '#ba1a1a',
                 }}
               />
             )}
           </Pressable>
-        </View>
 
-        {/* Carte d'état citoyen rapide à l'intérieur du Header */}
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: spacing.md,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: spacing.sm,
-            ...shadows.subtle,
-          }}
-        >
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ ...typography.caption, color: colors.text.secondary }}>
-              Statut fiscal de votre compte
-            </Text>
-            <Text style={{ ...typography.bodyLg, fontWeight: '700', color: colors.text.primary }}>
-              {pendingNotices.length === 0 ? 'En règle' : `${pendingNotices.length} avis à payer`}
-            </Text>
-          </View>
-          <Badge
-            label={pendingNotices.length === 0 ? 'À Jour' : hasOverdue ? 'Retard' : 'À régler'}
-            variant={pendingNotices.length === 0 ? 'success' : hasOverdue ? 'error' : 'warning'}
-          />
+          <Pressable
+            accessibilityLabel="Mon Profil"
+            accessibilityRole="button"
+            onPress={() => router.push('/profile' as any)}
+            style={({ pressed }) => ({
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: customColors.background,
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Ionicons name="person-circle" size={24} color={customColors.secondary} />
+          </Pressable>
         </View>
       </View>
 
       {/* ─── CONTENU PRINCIPAL ─── */}
-      <View style={{ padding: spacing.lg, gap: spacing.lg }}>
+      <View style={{ gap: spacing.lg, paddingTop: spacing.lg }}>
         
-        {/* Grille d'actions rapides épurée (Style bento discret) */}
-        <View style={{ gap: spacing.md }}>
-          <Text style={{ ...typography.h3, color: colors.text.primary, fontWeight: '700' }}>
-            Services municipaux
+        {/* Welcome Section */}
+        <View style={{ paddingHorizontal: spacing.lg, gap: 4 }}>
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
+            <View style={{ height: 2, width: 24, backgroundColor: customColors.gabonGreen, borderRadius: 1 }} />
+            <View style={{ height: 2, width: 24, backgroundColor: customColors.gabonYellow, borderRadius: 1 }} />
+            <View style={{ height: 2, width: 24, backgroundColor: customColors.gabonBlue, borderRadius: 1 }} />
+          </View>
+          <Text style={{ fontSize: 26, fontWeight: '700', color: customColors.primary, letterSpacing: -0.5 }}>
+            Bienvenue sur votre espace citoyen, {firstName}
+          </Text>
+          <Text style={{ fontSize: 14, color: customColors.textSecondary, lineHeight: 22, marginTop: 4 }}>
+            Gérez vos démarches administratives, suivez vos dossiers et interagissez avec les services de la mairie en toute simplicité.
+          </Text>
+        </View>
+
+        {/* Alerte Taxes Fiscale en attente (Backend link) */}
+        {pendingNotices.length > 0 && (
+          <Pressable
+            onPress={() => router.push('/taxes' as any)}
+            style={({ pressed }) => ({
+              marginHorizontal: spacing.lg,
+              backgroundColor: customColors.errorContainer,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: `${customColors.border}80`,
+              padding: spacing.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+              opacity: pressed ? 0.95 : 1,
+            })}
+          >
+            <Ionicons name="alert-circle-outline" size={24} color="#ba1a1a" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: customColors.onErrorContainer }}>
+                Avis de taxe en attente
+              </Text>
+              <Text style={{ fontSize: 12, color: customColors.onErrorContainer, marginTop: 2 }}>
+                Vous avez {pendingNotices.length} {pendingNotices.length > 1 ? 'avis fiscaux' : 'avis fiscal'} à régler sur votre espace.
+              </Text>
+            </View>
+            <View style={{ backgroundColor: '#ba1a1a', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 }}>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>Payer</Text>
+            </View>
+          </Pressable>
+        )}
+
+        {/* Bento Grid Metrics */}
+        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+            {/* Demandes en cours */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: customColors.surface,
+                borderRadius: 12,
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: `${customColors.border}50`,
+                position: 'relative',
+                overflow: 'hidden',
+                ...shadows.subtle,
+              }}
+            >
+              <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: '#b1c9e2' }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingLeft: 6 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: '#cde5ff', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="hourglass-outline" size={18} color={customColors.primary} />
+                </View>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: customColors.primary }}>3</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: customColors.textSecondary, paddingLeft: 6, letterSpacing: 0.2 }}>
+                Demandes en cours
+              </Text>
+            </View>
+
+            {/* Documents prêts */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: customColors.surface,
+                borderRadius: 12,
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: `${customColors.border}50`,
+                position: 'relative',
+                overflow: 'hidden',
+                ...shadows.subtle,
+              }}
+            >
+              <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: customColors.gabonGreen }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingLeft: 6 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: customColors.successContainer, justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="checkmark-done-circle-outline" size={18} color={customColors.gabonGreen} />
+                </View>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: customColors.primary }}>1</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: customColors.textSecondary, paddingLeft: 6, letterSpacing: 0.2 }}>
+                Documents prêts
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+            {/* Prochains RDV */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: customColors.surface,
+                borderRadius: 12,
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: `${customColors.border}50`,
+                position: 'relative',
+                overflow: 'hidden',
+                ...shadows.subtle,
+              }}
+            >
+              <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: customColors.gabonBlue }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingLeft: 6 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: '#c9e2fc', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="calendar-outline" size={18} color={customColors.gabonBlue} />
+                </View>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: customColors.primary }}>2</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: customColors.textSecondary, paddingLeft: 6, letterSpacing: 0.2 }}>
+                Prochains RDV
+              </Text>
+            </View>
+
+            {/* Messages non lus */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: customColors.surface,
+                borderRadius: 12,
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: `${customColors.border}50`,
+                position: 'relative',
+                overflow: 'hidden',
+                ...shadows.subtle,
+              }}
+            >
+              <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: '#ba1a1a' }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingLeft: 6 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: customColors.errorContainer, justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="mail-unread-outline" size={18} color="#ba1a1a" />
+                </View>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: customColors.primary }}>5</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: customColors.textSecondary, paddingLeft: 6, letterSpacing: 0.2 }}>
+                Messages non lus
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── SECTION DÉMARCHES (STATUT) ─── */}
+        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: customColors.primary }}>
+              Statut de mes démarches
+            </Text>
+            <Pressable>
+              <Text style={{ fontSize: 13, color: '#3a5f94', fontWeight: '600' }}>
+                Voir tout
+              </Text>
+            </Pressable>
+          </View>
+          
+          <Card variant="default" style={{ padding: 0, overflow: 'hidden', borderColor: `${customColors.border}80` }}>
+            {/* CNI */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: `${customColors.border}30` }}>
+              <View style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: customColors.background, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md }}>
+                <Ionicons name="card-outline" size={20} color={customColors.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: customColors.textPrimary }}>Renouvellement CNI</Text>
+                <Text style={{ fontSize: 12, color: customColors.textSecondary, marginTop: 2 }}>12 Mars 2024</Text>
+              </View>
+              <Badge label="En cours" variant="warning" />
+            </View>
+
+            {/* Birth cert */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: `${customColors.border}30` }}>
+              <View style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: customColors.background, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md }}>
+                <Ionicons name="document-text-outline" size={20} color={customColors.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: customColors.textPrimary }}>Acte de naissance</Text>
+                <Text style={{ fontSize: 12, color: customColors.textSecondary, marginTop: 2 }}>05 Mars 2024</Text>
+              </View>
+              <Badge label="Terminé" variant="success" />
+            </View>
+
+            {/* Permis de construire */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md }}>
+              <View style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: customColors.background, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md }}>
+                <Ionicons name="home-outline" size={20} color={customColors.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: customColors.textPrimary }}>Permis de construire</Text>
+                <Text style={{ fontSize: 12, color: customColors.textSecondary, marginTop: 2 }}>28 Fév 2024</Text>
+              </View>
+              <Badge label="Action requise" variant="error" />
+            </View>
+          </Card>
+        </View>
+
+        {/* ─── ACTIONS RAPIDES ─── */}
+        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: customColors.primary }}>
+            Actions rapides
           </Text>
           
-          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          <View style={{ gap: spacing.sm }}>
+            {/* Nouvelle Demande (Primary button) */}
             <Pressable
-              accessibilityLabel="Payer une taxe"
-              accessibilityRole="button"
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: customColors.primary,
+                borderRadius: 12,
+                padding: spacing.md,
+                opacity: pressed ? 0.9 : 1,
+              })}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md }}>
+                <Ionicons name="add-circle" size={22} color="#ffffff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#ffffff' }}>Nouvelle demande</Text>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>Lancer une démarche</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.8)" />
+            </Pressable>
+
+            {/* Prendre rdv */}
+            <Pressable
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: customColors.surface,
+                borderRadius: 12,
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: `${customColors.border}80`,
+                opacity: pressed ? 0.9 : 1,
+              })}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#cde5ff', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md }}>
+                <Ionicons name="time-outline" size={20} color={customColors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: customColors.textPrimary }}>Prendre rendez-vous</Text>
+                <Text style={{ fontSize: 11, color: customColors.textSecondary, marginTop: 2 }}>État civil, urbanisme...</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={customColors.secondary} />
+            </Pressable>
+
+            {/* Payer mes taxes (Redirect to Taxes) */}
+            <Pressable
               onPress={() => router.push('/taxes' as any)}
-              style={({ pressed }) => [
-                {
-                  flex: 1,
-                  padding: spacing.lg,
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 16,
-                  alignItems: 'center',
-                  gap: spacing.sm,
-                  borderWidth: 1,
-                  borderColor: pressed ? customColors.gabonBlue : colors.border.light,
-                  ...shadows.subtle,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                }
-              ]}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: customColors.surface,
+                borderRadius: 12,
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: `${customColors.border}80`,
+                opacity: pressed ? 0.9 : 1,
+              })}
             >
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: customColors.gabonLightBlue, justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="card-outline" size={24} color={customColors.gabonBlue} />
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: customColors.successContainer, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md }}>
+                <Ionicons name="wallet-outline" size={20} color={customColors.gabonGreen} />
               </View>
-              <Text style={{ ...typography.body, fontWeight: '600', color: colors.text.primary, textAlign: 'center' }}>
-                Payer une taxe
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: customColors.textPrimary }}>Payer mes taxes</Text>
+                <Text style={{ fontSize: 11, color: customColors.textSecondary, marginTop: 2 }}>Accès au portail fiscal</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={customColors.secondary} />
             </Pressable>
 
+            {/* Contacter la mairie */}
             <Pressable
-              accessibilityLabel="Mes paiements et quittances"
-              accessibilityRole="button"
-              onPress={() => router.push('/taxes' as any)}
-              style={({ pressed }) => [
-                {
-                  flex: 1,
-                  padding: spacing.lg,
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 16,
-                  alignItems: 'center',
-                  gap: spacing.sm,
-                  borderWidth: 1,
-                  borderColor: pressed ? customColors.gabonGreen : colors.border.light,
-                  ...shadows.subtle,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                }
-              ]}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: customColors.surface,
+                borderRadius: 12,
+                padding: spacing.md,
+                borderWidth: 1,
+                borderColor: `${customColors.border}80`,
+                opacity: pressed ? 0.9 : 1,
+              })}
             >
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: customColors.gabonLightGreen, justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="receipt-outline" size={24} color={customColors.gabonGreen} />
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: customColors.errorContainer, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md }}>
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color="#ba1a1a" />
               </View>
-              <Text style={{ ...typography.body, fontWeight: '600', color: colors.text.primary, textAlign: 'center' }}>
-                Mes paiements
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: spacing.md }}>
-            <Pressable
-              accessibilityLabel="Mes démarches"
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                {
-                  flex: 1,
-                  padding: spacing.lg,
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 16,
-                  alignItems: 'center',
-                  gap: spacing.sm,
-                  borderWidth: 1,
-                  borderColor: pressed ? customColors.gabonYellow : colors.border.light,
-                  ...shadows.subtle,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                }
-              ]}
-            >
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: customColors.gabonLightYellow, justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="document-text-outline" size={24} color={customColors.gabonYellow} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: customColors.textPrimary }}>Contacter la mairie</Text>
+                <Text style={{ fontSize: 11, color: customColors.textSecondary, marginTop: 2 }}>Assistance citoyenne</Text>
               </View>
-              <Text style={{ ...typography.body, fontWeight: '600', color: colors.text.primary, textAlign: 'center' }}>
-                Mes démarches
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityLabel="Aide et Support"
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                {
-                  flex: 1,
-                  padding: spacing.lg,
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 16,
-                  alignItems: 'center',
-                  gap: spacing.sm,
-                  borderWidth: 1,
-                  borderColor: pressed ? customColors.gabonBlue : colors.border.light,
-                  ...shadows.subtle,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                }
-              ]}
-            >
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: customColors.gabonLightBlue, justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="help-circle-outline" size={24} color={customColors.gabonBlue} />
-              </View>
-              <Text style={{ ...typography.body, fontWeight: '600', color: colors.text.primary, textAlign: 'center' }}>
-                Aide & Support
-              </Text>
+              <Ionicons name="chevron-forward" size={18} color={customColors.secondary} />
             </Pressable>
           </View>
         </View>
 
-        {/* ─── SECTION DES TAXES À PAYER ─── */}
-        <View style={{ gap: spacing.md, marginTop: spacing.xs }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ ...typography.h3, color: colors.text.primary, fontWeight: '700' }}>
-              Taxes à payer
-            </Text>
-            {!isLoading && pendingNotices.length > 0 && (
-              <Text style={{ ...typography.caption, color: colors.text.tertiary }}>
-                {pendingNotices.length} avis
-              </Text>
-            )}
-          </View>
-
-          {isLoading ? (
-            <Card variant="default">
-              <Text style={{ ...typography.body, color: colors.text.secondary, textAlign: 'center' }}>
-                Chargement de vos avis de taxe...
-              </Text>
-            </Card>
-          ) : pendingNotices.length === 0 ? (
-            <Card variant="default" style={{ alignItems: 'center', paddingVertical: spacing.xl, borderStyle: 'dashed' }}>
-              <View
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  backgroundColor: customColors.gabonLightGreen,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginBottom: spacing.md,
-                }}
-              >
-                <Ionicons name="checkmark-circle-outline" size={32} color={customColors.gabonGreen} />
-              </View>
-              <Text style={{ ...typography.bodyLg, fontWeight: '600', color: colors.text.primary, marginBottom: 4 }}>
-                Vous êtes entièrement à jour !
-              </Text>
-              <Text style={{ ...typography.body, color: colors.text.secondary, textAlign: 'center', paddingHorizontal: spacing.md }}>
-                Aucune taxe ni loyer municipal n'est en attente de paiement pour le moment.
-              </Text>
-            </Card>
-          ) : (
-            pendingNotices.map((notice) => {
-              const { label: statusLabel, variant: statusVariant } = getStatusDetails(notice.status, notice.due_date);
-              return (
-                <Card key={notice.id} variant="default" style={{ borderColor: colors.border.default }}>
-                  <View style={{ gap: spacing.md }}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                      }}
-                    >
-                      <View style={{ flex: 1, marginRight: spacing.md }}>
-                        <Text
-                          style={{
-                            ...typography.bodyLg,
-                            color: colors.text.primary,
-                            fontWeight: '700',
-                          }}
-                        >
-                          {notice.tax?.name ?? 'Avis de taxe'}
-                        </Text>
-                        <Text style={{ ...typography.caption, color: colors.text.tertiary, marginTop: 2 }}>
-                          Réf : {notice.notice_number || `AVIS-${notice.id}`}
-                        </Text>
-                      </View>
-                      <Badge label={statusLabel} variant={statusVariant} />
-                    </View>
-
-                    {/* Informations de la taxe avec mise en forme épurée */}
-                    <View style={{ gap: spacing.xs, backgroundColor: colors.background.subtle, padding: spacing.md, borderRadius: 8 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ ...typography.body, color: colors.text.secondary }}>Montant :</Text>
-                        <Text style={{ ...typography.body, fontWeight: '700', color: colors.text.primary }}>
-                          {notice.total_amount_formatted}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border.light, paddingTop: spacing.xs, marginTop: spacing.xs }}>
-                        <Text style={{ ...typography.body, color: colors.text.secondary }}>Échéance :</Text>
-                        <Text style={{ ...typography.body, fontWeight: '600', color: hasOverdue ? colors.error[600] : colors.text.primary }}>
-                          {new Date(notice.due_date).toLocaleDateString('fr-FR')}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Bouton d'action soigné */}
-                    <Pressable
-                      accessibilityLabel={`Régler ${notice.tax?.name ?? 'l\'avis'}`}
-                      accessibilityRole="button"
-                      onPress={() => router.push('/taxes' as any)}
-                      style={({ pressed }) => ({
-                        padding: spacing.md,
-                        borderRadius: 12,
-                        backgroundColor: customColors.gabonBlue,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        opacity: pressed ? 0.9 : 1,
-                        ...shadows.subtle,
-                      })}
-                    >
-                      <Text style={{ ...typography.button, color: '#FFFFFF' }}>
-                        Détails & Règlement
-                      </Text>
-                    </Pressable>
-                  </View>
-                </Card>
-              );
-            })
-          )}
-        </View>
       </View>
     </ScrollView>
   );
