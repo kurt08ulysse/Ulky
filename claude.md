@@ -126,7 +126,7 @@ L'implémentation de la Phase 3 est terminée, tant pour la partie backend que f
 - [x] **Génération Séquentielle Sans Trou** :
   - Utilisation de `lockForUpdate()` dans une transaction SQL pour garantir une numérotation continue (format `Q-COMMUNE-ANNEE-NUMERO`) même lors de requêtes concurrentes.
 - [x] **Intégration de l'API SingPay** :
-  - Service `SingPayService` configuré avec le Wallet ID réel `6a1f8d3b7ed7ede7c4e71e64`.
+  - Service `SingPayService` configuré avec le Wallet ID réel `6a21624a7ed7ed4575e73edd`.
   - Intégration des endpoints opérateurs Airtel Money (`74`) et Moov Money (`62`).
 - [x] **Vérification Publique & QR Code** :
   - Intégration d'un QR code sur la quittance PDF pointant vers une route publique `/verify/receipt/{token}`.
