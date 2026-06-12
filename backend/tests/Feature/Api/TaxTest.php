@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
+use Database\Seeders\TaxesTableSeeder;
 use Firebase\JWT\JWT;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -94,7 +95,7 @@ class TaxTest extends TestCase
         $agent->assignRole('municipal_agent');
 
         // Pré-remplir la table
-        $this->seed(\Database\Seeders\TaxesTableSeeder::class);
+        $this->seed(TaxesTableSeeder::class);
 
         $token = $this->makeJwt('user_agent_123');
 

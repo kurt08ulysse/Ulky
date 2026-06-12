@@ -105,7 +105,7 @@ class TaxNoticeTest extends TestCase
             ->assertJsonPath('data.0.id', $notice->id);
 
         // Test show
-        $responseShow = $this->withToken($token)->getJson('/api/v1/tax-notices/' . $notice->id);
+        $responseShow = $this->withToken($token)->getJson('/api/v1/tax-notices/'.$notice->id);
         $responseShow->assertStatus(200)
             ->assertJsonPath('data.id', $notice->id);
     }
@@ -140,7 +140,7 @@ class TaxNoticeTest extends TestCase
             ->assertJsonCount(0, 'data');
 
         // Test show (doit renvoyer un 403)
-        $responseShow = $this->withToken($token)->getJson('/api/v1/tax-notices/' . $noticeOfCitizen2->id);
+        $responseShow = $this->withToken($token)->getJson('/api/v1/tax-notices/'.$noticeOfCitizen2->id);
         $responseShow->assertStatus(403);
     }
 

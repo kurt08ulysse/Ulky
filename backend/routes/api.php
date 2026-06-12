@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\ReceiptController;
+use App\Http\Controllers\Api\SingPayWebhookController;
 use App\Http\Controllers\Api\TaxController;
 use App\Http\Controllers\Api\TaxNoticeController;
 use App\Http\Controllers\AuthController;
@@ -12,6 +14,10 @@ use Illuminate\Support\Facades\Route;
  */
 Route::post('webhooks/clerk', [ClerkWebhookController::class, 'handle'])
     ->middleware('throttle:60,1');
+
+Route::post('webhooks/singpay', [SingPayWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1')
+    ->name('singpay.webhook');
 
 /*
  * API v1 — toutes les routes protégées par le guard Clerk natif.
@@ -27,4 +33,8 @@ Route::prefix('v1')->middleware('clerk.auth')->group(function () {
     Route::apiResource('taxes', TaxController::class);
     Route::apiResource('tax-notices', TaxNoticeController::class)->except(['destroy', 'update']);
     Route::put('tax-notices/{taxNotice}/cancel', [TaxNoticeController::class, 'cancel']);
+    Route::post('tax-notices/{taxNotice}/pay', [TaxNoticeController::class, 'pay']);
+
+    // Quittances
+    Route::get('receipts/{receipt}', [ReceiptController::class, 'download']);
 });

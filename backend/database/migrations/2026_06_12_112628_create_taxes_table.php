@@ -15,16 +15,16 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->text('description')->nullable();
-            
+
             // Montants en centimes pour éviter les approximations de float (ex: 500000 = 5000 FCFA)
             $table->unsignedInteger('base_amount');
             $table->unsignedInteger('stamp_amount')->default(0);
-            
+
             $table->enum('periodicity', ['monthly', 'quarterly', 'yearly', 'one_time'])->default('one_time');
-            
+
             // Rattachement optionnel à une commune (préparation multi-communes phase 2)
             $table->unsignedBigInteger('commune_id')->nullable()->index();
-            
+
             $table->timestamps();
         });
     }

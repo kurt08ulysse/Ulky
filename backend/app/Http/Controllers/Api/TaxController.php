@@ -70,7 +70,7 @@ class TaxController extends Controller
         $tax->delete();
 
         return response()->json([
-            'message' => 'Taxe supprimée avec succès.'
+            'message' => 'Taxe supprimée avec succès.',
         ]);
     }
 }

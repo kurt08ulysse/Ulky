@@ -53,4 +53,11 @@ return [
         'testing_secret' => env('CLERK_TESTING_SECRET'),
     ],
 
+    'singpay' => [
+        'wallet_id' => env('SINGPAY_WALLET_ID'),
+        'client_id' => env('SINGPAY_CLIENT_ID'),
+        'client_secret' => env('SINGPAY_CLIENT_SECRET'),
+        'base_url' => env('SINGPAY_BASE_URL', 'https://gateway.singpay.ga/v1'),
+    ],
+
 ];

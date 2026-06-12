@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreTaxRequest extends FormRequest
@@ -17,12 +18,12 @@ class StoreTaxRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:taxes,name,' . ($this->tax?->id ?? 'NULL'),
+            'name' => 'required|string|max:255|unique:taxes,name,'.($this->tax?->id ?? 'NULL'),
             'description' => 'nullable|string',
             'base_amount' => 'required|integer|min:0', // Montant de base en centimes
             'stamp_amount' => 'nullable|integer|min:0', // Montant du timbre en centimes

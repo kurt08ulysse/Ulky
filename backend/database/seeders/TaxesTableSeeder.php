@@ -68,6 +68,6 @@ class TaxesTableSeeder extends Seeder
             );
         }
 
-        $this->command->info(count($taxes) . ' actes et taxes initialisés.');
+        $this->command->info(count($taxes).' actes et taxes initialisés.');
     }
 }
