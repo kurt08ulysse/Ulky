@@ -13,8 +13,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useSignIn, useSignUp } from '@clerk/expo';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+import { useSignIn, useSignUp, useSSO } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
+
+WebBrowser.maybeCompleteAuthSession();
 
 // Couleurs de la maquette Mairie de Franceville
 const colors = {
@@ -61,6 +65,7 @@ export default function LoginScreen() {
   // Clerk hooks
   const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
   const { signUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
+  const { startSSOFlow } = useSSO();
 
   // Form states
   const [email, setEmail] = useState('');
@@ -82,11 +87,52 @@ export default function LoginScreen() {
   const [focusSignUpPassword, setFocusSignUpPassword] = useState(false);
   const [focusCode, setFocusCode] = useState(false);
 
-  // Connexion
+  // Alerte cross-platform (Web / Mobile)
+  function showAlert(title: string, message: string) {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  }
+
+  // Connexion Google (SSO)
+  async function handleGoogleSignIn() {
+    console.log('Initiating Google Sign-In...');
+    setLoading(true);
+    try {
+      const redirectUrl = AuthSession.makeRedirectUri({ path: 'sso-callback' });
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl,
+      });
+
+      console.log('SSO Flow result:', { createdSessionId });
+
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace('/(app)');
+      } else {
+        showAlert('Connexion', 'Session non créée. Veuillez réessayer.');
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In Error:', error);
+      const message = error instanceof Error ? error.message : 'Échec de la connexion. Réessayez.';
+      showAlert('Connexion échouée', message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Connexion Classique (Email/Password)
   async function handleSignIn() {
-    if (!isSignInLoaded) return;
+    console.log('Initiating Email Sign-In...', { email });
+    if (!isSignInLoaded) {
+      console.warn('Clerk SignIn is not loaded yet');
+      return;
+    }
     if (!email || !password) {
-      Alert.alert('Champs requis', 'Veuillez saisir votre email et votre mot de passe.');
+      showAlert('Champs requis', 'Veuillez saisir votre email et votre mot de passe.');
       return;
     }
     setLoading(true);
@@ -95,38 +141,49 @@ export default function LoginScreen() {
         identifier: email,
         password,
       });
+      console.log('SignIn result:', completeSignIn.status);
       if (completeSignIn.status === 'complete') {
         await setSignInActive({ session: completeSignIn.createdSessionId });
         router.replace('/(app)');
+      } else {
+        showAlert('Connexion', `Statut incomplet : ${completeSignIn.status}`);
       }
     } catch (error: any) {
+      console.error('Email Sign-In Error:', error);
       const message = error.errors?.[0]?.message || 'Identifiants incorrects. Veuillez réessayer.';
-      Alert.alert('Échec de la connexion', message);
+      showAlert('Échec de la connexion', message);
     } finally {
       setLoading(false);
     }
   }
 
-  // Inscription
+  // Inscription (Email/Password)
   async function handleSignUp() {
-    if (!isSignUpLoaded) return;
+    console.log('Initiating Email Sign-Up...', { signUpEmail });
+    if (!isSignUpLoaded) {
+      console.warn('Clerk SignUp is not loaded yet');
+      return;
+    }
     if (!signUpFirstName || !signUpLastName || !signUpEmail || !signUpPassword) {
-      Alert.alert('Champs requis', 'Veuillez remplir tous les champs obligatoires.');
+      showAlert('Champs requis', 'Veuillez remplir tous les champs obligatoires.');
       return;
     }
     setLoading(true);
     try {
-      await signUp.create({
+      const result = await signUp.create({
         emailAddress: signUpEmail,
         password: signUpPassword,
         firstName: signUpFirstName,
         lastName: signUpLastName,
       });
+      console.log('SignUp create result:', result.status);
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      console.log('Email verification prepared');
       setPendingVerification(true);
     } catch (error: any) {
+      console.error('Email Sign-Up Error:', error);
       const message = error.errors?.[0]?.message || "L'inscription a échoué. Veuillez réessayer.";
-      Alert.alert("Échec de l'inscription", message);
+      showAlert("Échec de l'inscription", message);
     } finally {
       setLoading(false);
     }
@@ -134,9 +191,10 @@ export default function LoginScreen() {
 
   // Vérification de l'email
   async function handleVerifyCode() {
+    console.log('Attempting to verify email code...');
     if (!isSignUpLoaded) return;
     if (!verificationCode) {
-      Alert.alert('Champs requis', 'Veuillez saisir le code de vérification reçu par e-mail.');
+      showAlert('Champs requis', 'Veuillez saisir le code de vérification reçu par e-mail.');
       return;
     }
     setLoading(true);
@@ -144,13 +202,17 @@ export default function LoginScreen() {
       const completeSignUp = await signUp.attemptEmailAddressVerification({
         code: verificationCode,
       });
+      console.log('Verification result:', completeSignUp.status);
       if (completeSignUp.status === 'complete') {
         await setSignUpActive({ session: completeSignUp.createdSessionId });
         router.replace('/(app)');
+      } else {
+        showAlert('Vérification', `Statut : ${completeSignUp.status}`);
       }
     } catch (error: any) {
+      console.error('Verification Code Error:', error);
       const message = error.errors?.[0]?.message || 'Code incorrect. Veuillez réessayer.';
-      Alert.alert('Erreur de validation', message);
+      showAlert('Erreur de validation', message);
     } finally {
       setLoading(false);
     }
@@ -405,6 +467,29 @@ export default function LoginScreen() {
                 </Text>
               </Pressable>
 
+              {/* Bouton SSO Google */}
+              <Pressable
+                onPress={handleGoogleSignIn}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                  width: '100%',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 8,
+                  paddingVertical: 14,
+                  backgroundColor: '#FFFFFF',
+                  opacity: pressed ? 0.9 : 1,
+                })}
+              >
+                <Ionicons name="logo-google" size={18} color="#4285F4" />
+                <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 16 }}>
+                  S'inscrire avec Google
+                </Text>
+              </Pressable>
+
               <View style={{ borderTopWidth: 1, borderTopColor: `${colors.border}60`, marginTop: 8, paddingTop: 16 }}>
                 <Pressable
                   onPress={() => setIsSignUp(false)}
@@ -483,6 +568,29 @@ export default function LoginScreen() {
               >
                 <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 18 }}>
                   Se connecter
+                </Text>
+              </Pressable>
+
+              {/* Bouton SSO Google */}
+              <Pressable
+                onPress={handleGoogleSignIn}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                  width: '100%',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 8,
+                  paddingVertical: 14,
+                  backgroundColor: '#FFFFFF',
+                  opacity: pressed ? 0.9 : 1,
+                })}
+              >
+                <Ionicons name="logo-google" size={18} color="#4285F4" />
+                <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 16 }}>
+                  Se connecter avec Google
                 </Text>
               </Pressable>
 
