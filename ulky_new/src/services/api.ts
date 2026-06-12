@@ -3,7 +3,7 @@ import axios from 'axios';
 import { tokenStorage } from '@/services/tokenStorage';
 import { useAuthStore } from '@/store/auth';
 
-const fallbackBaseUrl = 'http://192.168.1.89:8001/api/v1';
+const fallbackBaseUrl = 'https://stocks-picking-easter-band.trycloudflare.com/api/v1';
 
 const backendUrl =
   (Constants.expoConfig?.extra as { BACKEND_API_URL?: string })?.BACKEND_API_URL ??
