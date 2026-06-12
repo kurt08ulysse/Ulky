@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, Switch, Text, View } from 'react-native';
+import { Alert, Platform, ScrollView, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/expo';
 import { useQueryClient } from '@tanstack/react-query';
@@ -18,34 +18,47 @@ export default function ProfileScreen() {
   const [monthlyReport, setMonthlyReport] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  async function handleLogout() {
-    Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Déconnexion',
-        style: 'destructive',
-        onPress: async () => {
-          setLoggingOut(true);
-          
-          // Appel de secours au backend en arrière-plan sans bloquer
-          logoutBackend().catch((err) => {
-            console.warn('Erreur lors de la déconnexion backend (non bloquant):', err);
-          });
+  async function performLogout() {
+    setLoggingOut(true);
+    
+    // Appel de secours au backend en arrière-plan sans bloquer
+    logoutBackend().catch((err) => {
+      console.warn('Erreur lors de la déconnexion backend (non bloquant):', err);
+    });
 
-          try {
-            console.log('Déconnexion de Clerk...');
-            queryClient.clear();
-            await signOut();
-            console.log('Déconnexion Clerk réussie');
-            router.replace('/(auth)/login');
-          } catch (e) {
-            console.error('Erreur lors du signOut Clerk:', e);
-            setLoggingOut(false);
-            Alert.alert('Erreur', 'La déconnexion a échoué. Veuillez réessayer.');
-          }
+    try {
+      console.log('Déconnexion de Clerk...');
+      queryClient.clear();
+      await signOut();
+      console.log('Déconnexion Clerk réussie');
+      router.replace('/(auth)/login');
+    } catch (e) {
+      console.error('Erreur lors du signOut Clerk:', e);
+      setLoggingOut(false);
+      if (Platform.OS === 'web') {
+        window.alert('La déconnexion a échoué. Veuillez réessayer.');
+      } else {
+        Alert.alert('Erreur', 'La déconnexion a échoué. Veuillez réessayer.');
+      }
+    }
+  }
+
+  async function handleLogout() {
+    if (Platform.OS === 'web') {
+      const confirmLogout = window.confirm('Êtes-vous sûr de vouloir vous déconnecter ?');
+      if (confirmLogout) {
+        await performLogout();
+      }
+    } else {
+      Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: performLogout,
         },
-      },
-    ]);
+      ]);
+    }
   }
 
   const initials = (user?.firstName || 'U').charAt(0).toUpperCase();
