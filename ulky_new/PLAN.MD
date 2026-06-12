@@ -31,7 +31,7 @@ Les files d'attente utilisent les queues Laravel natives sur Redis déjà autori
 
 
 
-Phase 0 — Socle et déploiement continu
+Phase 0 — Socle et déploiement continu (LIVRÉE)
 
 Fusionne l'ancienne phase 1 et l'ancienne phase 8 : le déploiement n'est pas une phase finale, c'est une pratique continue. Découvrir la production à la fin du projet est le moyen le plus sûr de la découvrir cassée.
 
@@ -44,7 +44,7 @@ Squelette de l'API /api/v1 avec l'enveloppe définie dans AGENTS.md.
 
 Critère de sortie : un écran de l'app affiche une donnée servie par l'API en staging, déployée par le pipeline ; la boucle CI est verte et bloquante ; une sauvegarde de la base a été restaurée avec succès (une sauvegarde jamais restaurée n'existe pas).
 
-Phase 1 — Identité et rôles
+Phase 1 — Identité et rôles (LIVRÉE)
 
 
 Inscription et connexion portées par Clerk via le canal décidé (téléphone + OTP probable) ; guard Laravel adossé au SDK Clerk ; aucun endpoint d'auth côté API (cf. AGENTS.md).
@@ -55,7 +55,7 @@ Le rôle régisseur (valide et encaisse les recettes) manquait : c'est lui qui r
 
 Critère de sortie : parcours inscription → connexion → action protégée complet sur device réel ; tests Feature auth et permissions verts sans aucun appel réseau à Clerk ; la révocation d'une session dans le dashboard Clerk coupe l'accès à l'API (vérifié) ; chaque rôle ne voit que ce que sa Policy autorise (testé) ; le rejeu d'un webhook utilisateur ne crée aucun doublon.
 
-Phase 2 — Référentiel des taxes et des contribuables
+Phase 2 — Référentiel des taxes et des contribuables (EN COURS)
 
 
 Création et paramétrage des taxes (montants, périodicité, échéances), rattachement des contribuables, recherche.

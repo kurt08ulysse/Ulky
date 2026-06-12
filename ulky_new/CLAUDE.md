@@ -236,7 +236,7 @@ Ambiguïté : choisir l'interprétation la plus probable, l'énoncer en une lign
 
 Historique des phases
 
-Phase 0 (Socle) — en cours : squelette frontend + backend, CI, déploiement continu.
+Phase 0 (Socle) — LIVRÉE le 2026-06-12 : monorepo, CI/CD GitHub Actions, VPN Tailscale, Nginx/PHP 8.5/Composer, et Cloudflare Tunnel opérationnel.
 Phase 1 (Identité & Rôles) — LIVRÉE le 2026-06-12 :
   Guard Clerk natif (ClerkAuthenticate, alias clerk.auth).
   Miroir users : clerk_id, phone, taxpayer_type, commune_id. Sans password.
@@ -244,6 +244,6 @@ Phase 1 (Identité & Rôles) — LIVRÉE le 2026-06-12 :
   Rôles Spatie : citizen, municipal_agent, cashier, commune_admin, super_admin.
   Sanctum et Socialite supprimés.
   Tests Feature : 11 passed, 28 assertions (vérifiés).
-Phase 2 (Référentiel taxes et contribuables) — à venir.
+Phase 2 (Référentiel taxes et contribuables) — en cours.
 Phase 3 (Paiement et quittance) — à venir.
 Phase 4 (Tableau de bord régisseur) — à venir.
