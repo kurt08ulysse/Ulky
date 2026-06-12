@@ -56,6 +56,6 @@ jobs:
             php artisan queue:restart
 
             echo "→ Rechargement PHP-FPM..."
-            sudo systemctl reload php8.2-fpm
+            sudo systemctl reload php8.5-fpm
 
             echo "✅ Déploiement terminé."
