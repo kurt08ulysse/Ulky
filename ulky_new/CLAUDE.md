@@ -182,10 +182,13 @@ Succès : { "data": ..., "meta": { ... } } — meta optionnel, pagination Larave
 Erreur : format Laravel natif { "message": "...", "errors": { ... } }, codes HTTP corrects (422 validation, 401/403 auth, 404, 429).
 Aucune enveloppe alternative, aucune erreur renvoyée en 200.
 
-Routes actives (Phase 1) :
+Routes actives :
   GET  /api/v1/auth/me       → AuthController@me      [clerk.auth]
   POST /api/v1/auth/logout   → AuthController@logout   [clerk.auth]
   POST /api/webhooks/clerk   → ClerkWebhookController@handle  [throttle:60,1, hors clerk.auth]
+  GET|POST|PUT|DELETE /api/v1/taxes → TaxController  [clerk.auth]
+  GET|POST /api/v1/tax-notices → TaxNoticeController (sauf destroy/update)  [clerk.auth]
+  PUT  /api/v1/tax-notices/{taxNotice}/cancel → TaxNoticeController@cancel  [clerk.auth]
 
 
 Sécurité (décisions, pas catégories)
@@ -244,6 +247,11 @@ Phase 1 (Identité & Rôles) — LIVRÉE le 2026-06-12 :
   Rôles Spatie : citizen, municipal_agent, cashier, commune_admin, super_admin.
   Sanctum et Socialite supprimés.
   Tests Feature : 11 passed, 28 assertions (vérifiés).
-Phase 2 (Référentiel taxes et contribuables) — en cours.
+Phase 2 (Référentiel taxes et contribuables) — Backend LIVRÉ le 2026-06-12 :
+  Modèles Tax et TaxNotice (base_amount et stamp_amount en centimes).
+  TaxesTableSeeder peuplé avec les 39 actes administratifs et tarifs réels.
+  TaxPolicy et TaxNoticePolicy protégeant les routes.
+  API Resources, Form Requests et tests Feature d'intégration (19 passed, 54 assertions total).
+  Frontend (Services API, hooks React Query, TaxesScreen) en cours d'intégration.
 Phase 3 (Paiement et quittance) — à venir.
 Phase 4 (Tableau de bord régisseur) — à venir.

@@ -92,14 +92,41 @@ n6hB7XSkUc6Gn/1egOX1AAAAEWJyYWRsZXlAdmVsbm94ZXJwAQIDBA==
 
 ---
 
+## ✅ Étape 4 : Référentiel des taxes et des contribuables — Backend (Terminé)
+
+L'implémentation de la Phase 2 côté backend est achevée, validée par des tests d'intégration complets :
+- [x] **Modélisation de la Taxe (`Tax`)** :
+  - Migration et modèle `Tax` gérant `base_amount` et `stamp_amount` en centimes (entiers pour éviter les flottants).
+  - Périodicité (`periodicity`) paramétrée en `one_time` (ponctuelle) par défaut pour les actes à la demande.
+- [x] **Modélisation des Avis de Taxes (`TaxNotice`)** :
+  - Migration et modèle `TaxNotice` liant un citoyen (`user_id`) à une taxe (`tax_id`) avec stockage des montants réels facturés (base et timbre) au moment de l'émission.
+  - Gestion des statuts (`pending`, `paid`, `cancelled`) avec scopes Eloquent.
+- [x] **Peuplement du Référentiel Réel (`TaxesTableSeeder`)** :
+  - Intégration des **39 actes administratifs et tarifs réels** fournis par le client (de l'Attestation de cession au Certificat de célibat) avec leurs coûts de base et de timbres exacts.
+- [x] **Sécurisation (Policies & Auth)** :
+  - Enregistrement des policies `TaxPolicy` et `TaxNoticePolicy`.
+  - Permissions restrictives : seuls les agents municipaux ou administrateurs peuvent créer/modifier les taxes et avis de taxes. Les citoyens ne peuvent voir **que leurs propres avis**.
+- [x] **Contrôleurs et API Resources** :
+  - Endpoints `/api/v1/taxes` et `/api/v1/tax-notices` enregistrés.
+  - Implémentation de `TaxResource` et `TaxNoticeResource` pour formater les montants en centimes et retour de texte.
+  - Route d'annulation dédiée : `PUT /api/v1/tax-notices/{taxNotice}/cancel`.
+- [x] **Tests Feature Automatisés** :
+  - `TaxTest` et `TaxNoticeTest` couvrant l'ensemble des scénarios de permissions (municipal agent vs citoyen), d'annulation, de validation de données et de calculs financiers.
+  - Exécution réussie de Pint et PHPUnit : **19 tests réussis, 54 assertions**.
+
+---
+
 ## 🚀 Prochaines Étapes (À faire)
 
-- [ ] **Secrets GitHub** : Ajouter les variables suivantes dans les secrets du repository GitHub (`Settings -> Secrets and variables -> Actions`) :
-  - `VM_SSH_PRIVATE_KEY` : *(Coller le bloc de clé privée OpenSSH ci-dessus)*
+- [ ] **Secrets GitHub** : Configurer les secrets sur GitHub pour activer la CI/CD automatique :
+  - `VM_SSH_PRIVATE_KEY` : *(Coller la clé privée OpenSSH ci-dessus)*
   - `VM_TAILSCALE_IP` : `100.68.232.112`
   - `VM_SSH_USER` : `bradley`
-  - `TAILSCALE_OAUTH_CLIENT_ID` : *(Depuis la console Tailscale, générer des credentials OAuth avec tag `tag:ci`)*
-  - `TAILSCALE_OAUTH_CLIENT_SECRET` : *(Secret généré par Tailscale)*
-- [ ] **Tunnel permanent** : Configurer un Cloudflare Tunnel permanent si tu as un nom de domaine (pour remplacer l'URL temporaire `*.trycloudflare.com`).
-- [ ] **Déploiement Frontend** : Configurer et déployer l'application mobile Expo (/ulky_new).
-- [ ] **Clerk Webhooks en Prod** : Configurer le endpoint de webhook de production (`/api/webhooks/clerk`) sur le dashboard de Clerk.
+  - `TAILSCALE_OAUTH_CLIENT_ID`
+  - `TAILSCALE_OAUTH_CLIENT_SECRET`
+- [ ] **Déploiement sur Staging** :
+  - Synchroniser les modifications sur la VM de staging (`git pull`).
+  - Lancer les migrations et seeders sur Neon : `php artisan migrate --force && php artisan db:seed --force`.
+- [ ] **Intégration Frontend (Expo)** :
+  - Créer le service d'appel API `taxService.ts` et le hook React Query `useTaxes.ts` (requêtant `/api/v1/tax-notices`).
+  - Développer l'écran `TaxesScreen.tsx` affichant le total dû et la liste détaillée des avis (Base + Timbre) pour le citoyen connecté.
