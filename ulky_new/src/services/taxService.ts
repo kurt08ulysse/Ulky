@@ -16,11 +16,23 @@ export type Tax = {
   updated_at: string;
 };
 
+export type Receipt = {
+  id: number;
+  payment_id: number;
+  receipt_number: string;
+  qr_code_token: string;
+  pdf_path: string | null;
+  created_at: string;
+  updated_at: string;
+  verification_url: string; // Attribut virtuel renvoyé par l'API
+};
+
 export type TaxNotice = {
   id: number;
   tax_id: number;
   user_id: number;
   tax?: Tax;
+  receipt?: Receipt;
   base_amount: number;
   stamp_amount: number;
   total_amount: number;
@@ -54,3 +66,9 @@ export async function cancelTaxNotice(id: number): Promise<TaxNotice> {
   const response = await api.put(`/tax-notices/${id}/cancel`);
   return response.data.data as TaxNotice;
 }
+
+export async function payTaxNotice(id: number, operator: string, phone: string): Promise<any> {
+  const response = await api.post(`/tax-notices/${id}/pay`, { operator, phone });
+  return response.data;
+}
+

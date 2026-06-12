@@ -54,4 +54,24 @@ class ReceiptController extends Controller
             'tax' => $receipt->payment->taxNotice->tax,
         ]);
     }
+
+    /**
+     * Route publique de téléchargement du PDF de la quittance (sans authentification).
+     *
+     * @param string $token
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse|\Symfony\Component\HttpFoundation\StreamedResponse
+     */
+    public function verifyPdf(string $token)
+    {
+        $receipt = Receipt::where('qr_code_token', $token)->first();
+
+        if (!$receipt || !$receipt->pdf_path || !Storage::disk('public')->exists($receipt->pdf_path)) {
+            abort(404, "Quittance PDF introuvable.");
+        }
+
+        return Storage::disk('public')->download(
+            $receipt->pdf_path,
+            "quittance-{$receipt->receipt_number}.pdf"
+        );
+    }
 }

@@ -1,17 +1,28 @@
 import React, { useState } from 'react';
-import { Alert, FlatList, Pressable, Text, View, ActivityIndicator } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { useTaxNotices, useCancelTaxNotice } from '@/hooks/useTaxes';
+import { Alert, FlatList, Pressable, Text, View, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as WebBrowser from 'expo-web-browser';
+import { useTaxNotices, useCancelTaxNotice, usePayTaxNotice } from '@/hooks/useTaxes';
 import { getMe } from '@/services/auth';
 import { colors, spacing, typography } from '@/theme';
-import { Card, Badge, Button } from '@/components';
+import { Card, Badge } from '@/components';
 
 type FilterStatus = 'all' | 'pending' | 'paid' | 'cancelled';
+type OperatorType = 'airtel_money' | 'moov_money';
+type PaymentStep = 'input' | 'ussd_wait';
 
 export default function TaxesScreen() {
   const [filter, setFilter] = useState<FilterStatus>('all');
-  const { data: notices, isLoading, error } = useTaxNotices();
+  const [selectedNotice, setSelectedNotice] = useState<any | null>(null);
+  const [operator, setOperator] = useState<OperatorType>('moov_money');
+  const [phone, setPhone] = useState('');
+  const [paymentStep, setPaymentStep] = useState<PaymentStep>('input');
+  const [selfPaying, setSelfPaying] = useState(false);
+
+  const queryClient = useQueryClient();
+  const { data: notices, isLoading, error, refetch } = useTaxNotices();
   const cancelMutation = useCancelTaxNotice();
+  const payMutation = usePayTaxNotice();
 
   const { data: currentUser } = useQuery({
     queryKey: ['me'],
@@ -35,12 +46,52 @@ export default function TaxesScreen() {
     return notice.status === filter;
   }) ?? [];
 
-  const handlePay = (noticeName: string, amount: string) => {
-    Alert.alert(
-      'Paiement Mobile Money',
-      `Le module de paiement (Airtel Money / Moov Money) pour un montant de ${amount} (${noticeName}) sera disponible lors de la Phase 3.`,
-      [{ text: 'Compris' }]
-    );
+  const handleOpenPay = (notice: any) => {
+    setSelectedNotice(notice);
+    setPhone(currentUser?.phone ?? '');
+    setOperator('moov_money');
+    setPaymentStep('input');
+    setSelfPaying(false);
+  };
+
+  const handleInitiatePayment = () => {
+    if (!selectedNotice) return;
+    if (!phone || phone.trim().length < 8) {
+      Alert.alert('Erreur', 'Veuillez saisir un numéro de téléphone valide.');
+      return;
+    }
+
+    setSelfPaying(true);
+
+    payMutation.mutate({
+      id: selectedNotice.id,
+      operator,
+      phone: phone.trim()
+    }, {
+      onSuccess: () => {
+        setSelfPaying(false);
+        setPaymentStep('ussd_wait');
+      },
+      onError: (err: any) => {
+        setSelfPaying(false);
+        const message = err?.response?.data?.message ?? 'Une erreur est survenue lors de l\'initialisation.';
+        Alert.alert('Erreur', message);
+      }
+    });
+  };
+
+  const handleFinishedUssd = () => {
+    setSelectedNotice(null);
+    queryClient.invalidateQueries({ queryKey: ['tax-notices'] });
+    refetch();
+  };
+
+  const handleViewReceipt = async (verificationUrl: string) => {
+    try {
+      await WebBrowser.openBrowserAsync(verificationUrl);
+    } catch {
+      Alert.alert('Erreur', 'Impossible d\'ouvrir la page de vérification.');
+    }
   };
 
   const handleCancel = (noticeId: number, noticeName: string) => {
@@ -73,10 +124,9 @@ export default function TaxesScreen() {
       return { label: '✓ Payé', variant: 'success' as const };
     }
     if (status === 'cancelled') {
-      return { label: '✕ Annulé', variant: 'primary' as const }; // Neutral
+      return { label: '✕ Annulé', variant: 'primary' as const };
     }
     
-    // Check if overdue
     const dueDate = new Date(dueDateStr);
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -90,7 +140,7 @@ export default function TaxesScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 justify-center items-center bg-white" style={{ backgroundColor: colors.background.default }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background.default }}>
         <ActivityIndicator size="large" color={colors.primary[600]} />
         <Text style={{ ...typography.body, color: colors.text.secondary, marginTop: spacing.md }}>
           Chargement de vos avis de taxes...
@@ -101,7 +151,7 @@ export default function TaxesScreen() {
 
   if (error) {
     return (
-      <View className="flex-1 justify-center items-center bg-white p-6" style={{ backgroundColor: colors.background.default }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background.default, padding: 24 }}>
         <Text style={{ fontSize: 48, marginBottom: spacing.md }}>⚠️</Text>
         <Text style={{ ...typography.h3, color: colors.text.primary, textAlign: 'center', marginBottom: spacing.sm }}>
           Erreur de connexion
@@ -224,7 +274,7 @@ export default function TaxesScreen() {
                 {item.status === 'pending' && (
                   <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs }}>
                     <Pressable
-                      onPress={() => handlePay(noticeName, item.total_amount_formatted)}
+                      onPress={() => handleOpenPay(item)}
                       style={{
                         flex: 2,
                         paddingVertical: spacing.md,
@@ -258,11 +308,181 @@ export default function TaxesScreen() {
                     )}
                   </View>
                 )}
+
+                {item.status === 'paid' && item.receipt?.verification_url && (
+                  <Pressable
+                    onPress={() => handleViewReceipt(item.receipt!.verification_url)}
+                    style={{
+                      marginTop: spacing.xs,
+                      paddingVertical: spacing.md,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: colors.primary[600],
+                      backgroundColor: `${colors.primary[600]}10`,
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 16 }}>📥</Text>
+                    <Text style={{ ...typography.button, color: colors.primary[600] }}>
+                      Voir & Télécharger le reçu
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             </Card>
           );
         }}
       />
+
+      {/* Payment Dialog Modal */}
+      <Modal
+        visible={selectedNotice !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedNotice(null)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: spacing.lg }}>
+          <View style={{ backgroundColor: colors.background.default, width: '100%', borderRadius: 16, padding: spacing.lg, gap: spacing.md }}>
+            
+            {paymentStep === 'input' ? (
+              <>
+                <Text style={{ ...typography.h3, color: colors.text.primary }}>Réglage Mobile Money</Text>
+                <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                  Paiement de <Text style={{ fontWeight: '700' }}>{selectedNotice?.total_amount_formatted}</Text> pour l'acte "{selectedNotice?.tax?.name}".
+                </Text>
+
+                {/* Operator Selector */}
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={{ ...typography.caption, color: colors.text.secondary }}>Opérateur :</Text>
+                  <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                    <Pressable 
+                      onPress={() => setOperator('moov_money')}
+                      style={{
+                        flex: 1,
+                        padding: spacing.md,
+                        borderRadius: 8,
+                        borderWidth: 2,
+                        borderColor: operator === 'moov_money' ? colors.primary[600] : colors.neutral[300],
+                        alignItems: 'center',
+                        backgroundColor: operator === 'moov_money' ? `${colors.primary[600]}10` : 'transparent',
+                      }}
+                    >
+                      <Text style={{ ...typography.body, fontWeight: '700', color: operator === 'moov_money' ? colors.primary[600] : colors.text.primary }}>
+                        Moov Money
+                      </Text>
+                    </Pressable>
+
+                    <Pressable 
+                      onPress={() => setOperator('airtel_money')}
+                      style={{
+                        flex: 1,
+                        padding: spacing.md,
+                        borderRadius: 8,
+                        borderWidth: 2,
+                        borderColor: operator === 'airtel_money' ? colors.primary[600] : colors.neutral[300],
+                        alignItems: 'center',
+                        backgroundColor: operator === 'airtel_money' ? `${colors.primary[600]}10` : 'transparent',
+                      }}
+                    >
+                      <Text style={{ ...typography.body, fontWeight: '700', color: operator === 'airtel_money' ? colors.primary[600] : colors.text.primary }}>
+                        Airtel Money
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Phone Input */}
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={{ ...typography.caption, color: colors.text.secondary }}>Numéro de téléphone :</Text>
+                  <TextInput
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="+241 06 XX XX XX"
+                    keyboardType="phone-pad"
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.neutral[300],
+                      borderRadius: 8,
+                      padding: spacing.md,
+                      fontSize: 16,
+                      color: colors.text.primary,
+                      backgroundColor: colors.neutral[50],
+                    }}
+                  />
+                </View>
+
+                {/* Buttons */}
+                <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
+                  <Pressable
+                    disabled={selfPaying}
+                    onPress={() => setSelectedNotice(null)}
+                    style={{
+                      flex: 1,
+                      padding: spacing.md,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: colors.neutral[300],
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ ...typography.button, color: colors.text.secondary }}>
+                      Annuler
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    disabled={selfPaying}
+                    onPress={handleInitiatePayment}
+                    style={{
+                      flex: 2,
+                      padding: spacing.md,
+                      borderRadius: 8,
+                      backgroundColor: colors.primary[600],
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexDirection: 'row',
+                      gap: 8,
+                    }}
+                  >
+                    {selfPaying && <ActivityIndicator color={colors.text.inverse} size="small" />}
+                    <Text style={{ ...typography.button, color: colors.text.inverse }}>
+                      Initier le règlement
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={{ ...typography.h3, color: colors.text.primary, textAlign: 'center' }}>📲 En attente de validation</Text>
+                <Text style={{ ...typography.body, color: colors.text.secondary, textAlign: 'center', marginVertical: spacing.md }}>
+                  Une demande de confirmation de paiement (Push USSD) a été envoyée au numéro <Text style={{ fontWeight: '700', color: colors.text.primary }}>{phone}</Text>.<br/><br/>
+                  Veuillez composer votre code secret sur votre téléphone pour approuver le paiement de <Text style={{ fontWeight: '700', color: colors.text.primary }}>{selectedNotice?.total_amount_formatted}</Text>.
+                </Text>
+
+                <Pressable
+                  onPress={handleFinishedUssd}
+                  style={{
+                    padding: spacing.md,
+                    borderRadius: 8,
+                    backgroundColor: colors.primary[600],
+                    alignItems: 'center',
+                    marginTop: spacing.sm,
+                  }}
+                >
+                  <Text style={{ ...typography.button, color: colors.text.inverse }}>
+                    J'ai validé le code secret
+                  </Text>
+                </Pressable>
+              </>
+            )}
+
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+

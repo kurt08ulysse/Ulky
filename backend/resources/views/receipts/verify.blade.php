@@ -98,6 +98,24 @@
             color: #9CA3AF;
             margin-top: 5px;
         }
+        .btn-pdf {
+            display: inline-block;
+            background-color: #10B981;
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            text-decoration: none;
+            margin-bottom: 20px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+            transition: background-color 0.2s;
+        }
+        .btn-pdf:hover {
+            background-color: #059669;
+        }
     </style>
 </head>
 <body>
@@ -141,6 +159,10 @@
                 <span class="info-value">{{ \Carbon\Carbon::parse($taxNotice->paid_at)->format('d/m/Y H:i:s') }}</span>
             </div>
         </div>
+
+        <a href="{{ route('receipts.verify.pdf', $receipt->qr_code_token) }}" class="btn-pdf">
+            📥 Télécharger la Quittance PDF
+        </a>
 
         <div class="logo-footer">ULKY Mairie</div>
         <div class="verified-by">Système de Vérification d'Authenticité Numérique</div>

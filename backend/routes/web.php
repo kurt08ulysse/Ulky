@@ -9,3 +9,6 @@ Route::get('/', function () {
 
 Route::get('/verify/receipt/{token}', [ReceiptController::class, 'verify'])
     ->name('receipts.verify');
+
+Route::get('/verify/receipt/{token}/pdf', [ReceiptController::class, 'verifyPdf'])
+    ->name('receipts.verify.pdf');
