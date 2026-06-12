@@ -55,12 +55,12 @@ Le rôle régisseur (valide et encaisse les recettes) manquait : c'est lui qui r
 
 Critère de sortie : parcours inscription → connexion → action protégée complet sur device réel ; tests Feature auth et permissions verts sans aucun appel réseau à Clerk ; la révocation d'une session dans le dashboard Clerk coupe l'accès à l'API (vérifié) ; chaque rôle ne voit que ce que sa Policy autorise (testé) ; le rejeu d'un webhook utilisateur ne crée aucun doublon.
 
-Phase 2 — Référentiel des taxes et des contribuables (EN COURS — Backend LIVRÉ)
+Phase 2 — Référentiel des taxes et des contribuables (LIVRÉE)
 
 
 Création et paramétrage des taxes (montants base et timbre en centimes), seeder de 39 actes réels, rattachement des contribuables (avis de taxes/factures) et sécurisation par Policies d'autorisation.
 Backend : LIVRÉ le 2026-06-12 (Migrations, Modèles, Seeders, Policies, Ressources, Requêtes, Routes, et Tests 100% OK).
-Frontend : EN COURS (Intégration du service API, des hooks React Query et de l'écran TaxesScreen).
+Frontend : LIVRÉ le 2026-06-12 (Intégration du service API, hooks React Query, onglet "Taxes" et écran TaxesScreen complet avec filtres).
 
 
 Critère de sortie : un agent crée une taxe et l'assigne ; le contribuable la voit dans l'app avec son échéance, le coût de base, le coût du timbre et le statut.

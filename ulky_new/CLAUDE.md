@@ -247,11 +247,8 @@ Phase 1 (Identité & Rôles) — LIVRÉE le 2026-06-12 :
   Rôles Spatie : citizen, municipal_agent, cashier, commune_admin, super_admin.
   Sanctum et Socialite supprimés.
   Tests Feature : 11 passed, 28 assertions (vérifiés).
-Phase 2 (Référentiel taxes et contribuables) — Backend LIVRÉ le 2026-06-12 :
-  Modèles Tax et TaxNotice (base_amount et stamp_amount en centimes).
-  TaxesTableSeeder peuplé avec les 39 actes administratifs et tarifs réels.
-  TaxPolicy et TaxNoticePolicy protégeant les routes.
-  API Resources, Form Requests et tests Feature d'intégration (19 passed, 54 assertions total).
-  Frontend (Services API, hooks React Query, TaxesScreen) en cours d'intégration.
+Phase 2 (Référentiel taxes et contribuables) — LIVRÉE le 2026-06-12 :
+  Backend (Modèles Tax et TaxNotice, TaxesTableSeeder peuplé avec 39 actes réels, Policies d'accès, API Resources, tests Feature 100% OK).
+  Frontend (Intégration du service API, hooks React Query, onglet "Taxes", écran TaxesScreen avec filtre de statut, calcul dynamique du total dû et gestion des rôles pour l'annulation).
 Phase 3 (Paiement et quittance) — à venir.
 Phase 4 (Tableau de bord régisseur) — à venir.

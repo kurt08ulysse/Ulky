@@ -2,12 +2,13 @@ import React from 'react';
 import { Pressable, Text, View, ActivityIndicator, ViewStyle, PressableProps } from 'react-native';
 import { colors, spacing, typography } from '@/theme';
 
-interface ButtonProps extends PressableProps {
+interface ButtonProps extends Omit<PressableProps, 'style'> {
   variant?: 'primary' | 'secondary' | 'tertiary' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   loading?: boolean;
   children: React.ReactNode;
+  style?: ViewStyle;
 }
 
 export function Button({

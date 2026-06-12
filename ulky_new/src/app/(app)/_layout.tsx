@@ -5,12 +5,16 @@ import { useAuthStore } from '@/store/auth';
 import { colors, spacing } from '@/theme';
 
 // Icon components (emoji-based for simplicity)
-function HomeIcon({ color }: { color: string }) {
+function HomeIcon({ color }: { color: any }) {
   return <Text style={{ fontSize: 20 }}>🏠</Text>;
 }
 
-function ProfileIcon({ color }: { color: string }) {
+function ProfileIcon({ color }: { color: any }) {
   return <Text style={{ fontSize: 20 }}>👤</Text>;
+}
+
+function TaxesIcon({ color }: { color: any }) {
+  return <Text style={{ fontSize: 20 }}>💰</Text>;
 }
 
 export default function AppLayout() {
@@ -46,6 +50,15 @@ export default function AppLayout() {
           title: 'Accueil',
           tabBarLabel: 'Accueil',
           tabBarIcon: ({ color }) => <HomeIcon color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="taxes"
+        options={{
+          title: 'Taxes',
+          tabBarLabel: 'Taxes',
+          tabBarIcon: ({ color }) => <TaxesIcon color={color} />,
         }}
       />
 

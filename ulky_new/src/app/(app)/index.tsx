@@ -1,54 +1,41 @@
 import { useQuery } from '@tanstack/react-query';
 import { ScrollView, Text, View, Pressable } from 'react-native';
-import { useAuth } from '@clerk/expo';
+import { useUser } from '@clerk/expo';
+import { useRouter } from 'expo-router';
 import { getMe } from '@/services/auth';
+import { useTaxNotices } from '@/hooks/useTaxes';
 import { colors, spacing, typography } from '@/theme';
 import { Card, Badge } from '@/components';
 
-// Mock taxes data
-const MOCK_TAXES = [
-  {
-    id: '1',
-    name: 'Impôt sur le Revenu',
-    amount: 50000,
-    dueDate: '2026-06-30',
-    status: 'pending' as const,
-  },
-  {
-    id: '2',
-    name: 'Patente Commerciale',
-    amount: 25000,
-    dueDate: '2026-06-30',
-    status: 'pending' as const,
-  },
-  {
-    id: '3',
-    name: 'Taxe Foncière',
-    amount: 75000,
-    dueDate: '2026-07-15',
-    status: 'overdue' as const,
-  },
-];
-
-function getTaxStatusLabel(status: string) {
-  switch (status) {
-    case 'paid':
-      return '✓ Payé';
-    case 'pending':
-      return '⏳ En attente';
-    case 'overdue':
-      return '⚠️ En retard';
-    default:
-      return status;
+function getStatusDetails(status: string, dueDateStr: string) {
+  if (status === 'paid') {
+    return { label: '✓ Payé', variant: 'success' as const };
   }
+  if (status === 'cancelled') {
+    return { label: '✕ Annulé', variant: 'primary' as const };
+  }
+  
+  const dueDate = new Date(dueDateStr);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  if (dueDate < today) {
+    return { label: '⚠️ En retard', variant: 'error' as const };
+  }
+  
+  return { label: '⏳ En attente', variant: 'warning' as const };
 }
 
 export default function HomeScreen() {
-  const { user } = useAuth();
-  const { data: currentUser, isLoading } = useQuery({
+  const { user } = useUser();
+  const router = useRouter();
+  
+  const { data: currentUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['me'],
     queryFn: getMe,
   });
+
+  const { data: notices, isLoading: isLoadingNotices } = useTaxNotices();
 
   const today = new Date();
   const dateString = today.toLocaleDateString('fr-FR', {
@@ -57,6 +44,17 @@ export default function HomeScreen() {
     month: 'long',
     year: 'numeric',
   });
+
+  // Filter only pending/overdue notices for home screen dashboard
+  const pendingNotices = notices?.filter(notice => notice.status === 'pending') ?? [];
+  const hasOverdue = pendingNotices.some(notice => {
+    const dueDate = new Date(notice.due_date);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    return dueDate < today;
+  });
+
+  const isLoading = isLoadingUser || isLoadingNotices;
 
   return (
     <ScrollView
@@ -98,6 +96,7 @@ export default function HomeScreen() {
         <View style={{ gap: spacing.md }}>
           <View style={{ flexDirection: 'row', gap: spacing.md }}>
             <Pressable
+              onPress={() => router.push('/taxes' as any)}
               style={{
                 flex: 1,
                 padding: spacing.lg,
@@ -114,6 +113,7 @@ export default function HomeScreen() {
             </Pressable>
 
             <Pressable
+              onPress={() => router.push('/taxes' as any)}
               style={{
                 flex: 1,
                 padding: spacing.lg,
@@ -168,9 +168,12 @@ export default function HomeScreen() {
         {/* Taxes Section */}
         <View style={{ gap: spacing.md }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ ...typography.h3, color: colors.text.primary }}>Taxes à jour</Text>
-            {MOCK_TAXES.length === 0 && (
+            <Text style={{ ...typography.h3, color: colors.text.primary }}>Taxes à payer</Text>
+            {!isLoading && pendingNotices.length === 0 && (
               <Badge label="À jour" variant="success" />
+            )}
+            {!isLoading && hasOverdue && (
+              <Badge label="Attention" variant="error" />
             )}
           </View>
 
@@ -178,7 +181,7 @@ export default function HomeScreen() {
             <Text style={{ ...typography.body, color: colors.text.secondary }}>
               Chargement...
             </Text>
-          ) : MOCK_TAXES.length === 0 ? (
+          ) : pendingNotices.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
               <Text style={{ fontSize: 32, marginBottom: spacing.md }}>📭</Text>
               <Text style={{ ...typography.body, color: colors.text.secondary, textAlign: 'center' }}>
@@ -186,51 +189,45 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            MOCK_TAXES.map((tax) => (
-              <Card key={tax.id} variant="default">
-                <View style={{ gap: spacing.sm }}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Text
+            pendingNotices.map((notice) => {
+              const { label: statusLabel, variant: statusVariant } = getStatusDetails(notice.status, notice.due_date);
+              return (
+                <Card key={notice.id} variant="default">
+                  <View style={{ gap: spacing.sm }}>
+                    <View
                       style={{
-                        ...typography.bodyLg,
-                        color: colors.text.primary,
-                        flex: 1,
-                        marginRight: spacing.md,
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
                       }}
                     >
-                      {tax.name}
+                      <Text
+                        style={{
+                          ...typography.bodyLg,
+                          color: colors.text.primary,
+                          flex: 1,
+                          marginRight: spacing.md,
+                          fontWeight: '700',
+                        }}
+                      >
+                        {notice.tax?.name ?? 'Avis de taxe'}
+                      </Text>
+                      <Badge label={statusLabel} variant={statusVariant} />
+                    </View>
+
+                    <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                      Montant : <Text style={{ fontWeight: '600', color: colors.text.primary }}>{notice.total_amount_formatted}</Text>
                     </Text>
-                    <Badge
-                      label={getTaxStatusLabel(tax.status)}
-                      variant={
-                        tax.status === 'paid'
-                          ? 'success'
-                          : tax.status === 'overdue'
-                            ? 'error'
-                            : 'warning'
-                      }
-                    />
-                  </View>
 
-                  <Text style={{ ...typography.body, color: colors.text.secondary }}>
-                    Montant : <Text style={{ fontWeight: '600' }}>{tax.amount.toLocaleString()} FCFA</Text>
-                  </Text>
-
-                  <Text style={{ ...typography.body, color: colors.text.secondary }}>
-                    Échéance :{' '}
-                    <Text style={{ fontWeight: '600' }}>
-                      {new Date(tax.dueDate).toLocaleDateString('fr-FR')}
+                    <Text style={{ ...typography.body, color: colors.text.secondary }}>
+                      Échéance :{' '}
+                      <Text style={{ fontWeight: '600', color: colors.text.primary }}>
+                        {new Date(notice.due_date).toLocaleDateString('fr-FR')}
+                      </Text>
                     </Text>
-                  </Text>
 
-                  {tax.status !== 'paid' && (
                     <Pressable
+                      onPress={() => router.push('/taxes' as any)}
                       style={{
                         marginTop: spacing.sm,
                         padding: spacing.md,
@@ -240,13 +237,13 @@ export default function HomeScreen() {
                       }}
                     >
                       <Text style={{ ...typography.button, color: colors.primary[600] }}>
-                        Payer maintenant
+                        Détails & Règlement
                       </Text>
                     </Pressable>
-                  )}
-                </View>
-              </Card>
-            ))
+                  </View>
+                </Card>
+              );
+            })
           )}
         </View>
       </View>

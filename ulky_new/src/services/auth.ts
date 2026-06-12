@@ -5,6 +5,10 @@ export type AuthUser = {
   id: number;
   name: string;
   email: string;
+  phone?: string;
+  taxpayer_type?: 'individual' | 'business';
+  roles: string[];
+  commune_id?: number | null;
 };
 
 export async function loginWithClerkToken(sessionToken: string): Promise<AuthUser> {

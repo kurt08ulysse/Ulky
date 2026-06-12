@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@clerk/expo';
+import { useAuth, useUser } from '@clerk/expo';
 import { useQueryClient } from '@tanstack/react-query';
 import { logout } from '@/services/auth';
 import { useAuthStore } from '@/store/auth';
@@ -12,7 +12,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { setAuthenticated } = useAuthStore();
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
+  const { user } = useUser();
 
   const [notifications, setNotifications] = useState(true);
   const [sms, setSms] = useState(true);

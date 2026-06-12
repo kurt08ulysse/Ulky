@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Pressable, Text, useSafeAreaInsets } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme';
 
 export interface BottomTabItem {
@@ -44,7 +45,7 @@ export function BottomTabs({ items }: BottomTabsProps) {
             {React.cloneElement(item.icon as React.ReactElement, {
               color: item.active ? colors.primary[600] : colors.text.tertiary,
               size: 24,
-            })}
+            } as any)}
           </View>
           <Text
             style={{
