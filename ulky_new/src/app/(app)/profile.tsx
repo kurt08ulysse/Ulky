@@ -26,20 +26,20 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           setLoggingOut(true);
+          
+          // Appel de secours au backend en arrière-plan sans bloquer
+          logoutBackend().catch((err) => {
+            console.warn('Erreur lors de la déconnexion backend (non bloquant):', err);
+          });
+
           try {
-            await logoutBackend();
-          } catch {
-            // best-effort: enregistrement backend seulement
-          }
-          try {
-            // Clerk gère lui-même la redirection via le layout protégé :
-            // dès que isSignedIn devient false, le _layout redirige vers /(auth)/login.
-            // On vide le cache React Query AVANT signOut pour éviter des re-renders avec données orphelines.
+            console.log('Déconnexion de Clerk...');
             queryClient.clear();
             await signOut();
-            // Redirection de secours si le layout ne réagit pas (ex. sur web)
+            console.log('Déconnexion Clerk réussie');
             router.replace('/(auth)/login');
           } catch (e) {
+            console.error('Erreur lors du signOut Clerk:', e);
             setLoggingOut(false);
             Alert.alert('Erreur', 'La déconnexion a échoué. Veuillez réessayer.');
           }
