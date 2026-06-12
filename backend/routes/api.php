@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SingPayWebhookController;
 use App\Http\Controllers\Api\TaxController;
@@ -16,7 +17,7 @@ Route::post('webhooks/clerk', [ClerkWebhookController::class, 'handle'])
     ->middleware('throttle:60,1');
 
 Route::post('webhooks/singpay', [SingPayWebhookController::class, 'handle'])
-    ->middleware('throttle:60,1')
+    ->middleware(['throttle:60,1', 'singpay.signed'])
     ->name('singpay.webhook');
 
 /*
@@ -38,3 +39,28 @@ Route::prefix('v1')->middleware('clerk.auth')->group(function () {
     // Quittances
     Route::get('receipts/{receipt}', [ReceiptController::class, 'download']);
 });
+
+/*
+ * API v1 Admin — protégées par clerk.auth + admin.role (municipal_agent | cashier | commune_admin | super_admin).
+ * Les citoyens reçoivent 403 au niveau du middleware, avant même d'atteindre le contrôleur.
+ */
+Route::prefix('v1/admin')
+    ->middleware(['clerk.auth', 'admin.role', 'throttle:120,1'])
+    ->group(function () {
+        // Tableau de bord — KPIs et graphique
+        Route::get('dashboard', [AdminController::class, 'dashboard']);
+
+        // Avis de taxes (tous les contribuables)
+        Route::get('tax-notices', [AdminController::class, 'taxNotices']);
+        Route::get('tax-notices/{taxNotice}', [AdminController::class, 'showTaxNotice']);
+        Route::post('tax-notices', [AdminController::class, 'createTaxNotice']);
+
+        // Recherche de citoyen par téléphone (debounce côté client)
+        Route::get('citizens/search', [AdminController::class, 'searchCitizen']);
+
+        // Journal d'audit
+        Route::get('audit-logs', [AdminController::class, 'auditLogs']);
+
+        // Export CSV
+        Route::get('export/csv', [AdminController::class, 'exportCsv']);
+    });

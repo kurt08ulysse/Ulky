@@ -4,19 +4,15 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
-import { useSSO, useAuth } from '@clerk/expo';
-import { loginWithClerkToken } from '@/services/auth';
-import { useAuthStore } from '@/store/auth';
+import { useSSO } from '@clerk/expo';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { setAuthenticated } = useAuthStore();
   const [loading, setLoading] = useState(false);
 
   const { startSSOFlow } = useSSO();
-  const { getToken } = useAuth();
 
   async function handleGoogleSignIn() {
     setLoading(true);
@@ -29,14 +25,7 @@ export default function LoginScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        const clerkToken = await getToken();
-        if (clerkToken) {
-          await loginWithClerkToken(clerkToken);
-          setAuthenticated(true);
-          router.replace('/(app)');
-        } else {
-          Alert.alert('Erreur', 'Impossible de récupérer le jeton de session.');
-        }
+        router.replace('/(app)');
       }
     } catch (error) {
       const message =

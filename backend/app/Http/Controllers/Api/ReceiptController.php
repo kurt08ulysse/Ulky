@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Receipt;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReceiptController extends Controller
@@ -58,15 +59,14 @@ class ReceiptController extends Controller
     /**
      * Route publique de téléchargement du PDF de la quittance (sans authentification).
      *
-     * @param string $token
-     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse|\Symfony\Component\HttpFoundation\StreamedResponse
+     * @return BinaryFileResponse|StreamedResponse
      */
     public function verifyPdf(string $token)
     {
         $receipt = Receipt::where('qr_code_token', $token)->first();
 
-        if (!$receipt || !$receipt->pdf_path || !Storage::disk('public')->exists($receipt->pdf_path)) {
-            abort(404, "Quittance PDF introuvable.");
+        if (! $receipt || ! $receipt->pdf_path || ! Storage::disk('public')->exists($receipt->pdf_path)) {
+            abort(404, 'Quittance PDF introuvable.');
         }
 
         return Storage::disk('public')->download(

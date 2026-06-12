@@ -1,0 +1,21 @@
+diff --git a/node_modules/@clerk/expo/dist/specs/NativeClerkModule.js b/node_modules/@clerk/expo/dist/specs/NativeClerkModule.js
+index 0bf37a8..1ac3534 100644
+--- a/node_modules/@clerk/expo/dist/specs/NativeClerkModule.js
++++ b/node_modules/@clerk/expo/dist/specs/NativeClerkModule.js
+@@ -1,8 +1,9 @@
++// PATCHED localement par ULKY : sur web (react-native-web), TurboModuleRegistry
++// est undefined ; l'appel original `TurboModuleRegistry.get('ClerkExpo')` crashait
++// le bundle web. Optional access = null sur web, module natif sur iOS/Android.
++// À reproduire via patch-package après prochain `npm install`.
+ let react_native = require("react-native");
+-
+-//#region src/specs/NativeClerkModule.ts
+-var NativeClerkModule_default = react_native.TurboModuleRegistry.get("ClerkExpo");
+-
+-//#endregion
++var NativeClerkModule_default = react_native.TurboModuleRegistry
++  ? react_native.TurboModuleRegistry.get("ClerkExpo")
++  : null;
+ module.exports = NativeClerkModule_default;
+-//# sourceMappingURL=NativeClerkModule.js.map
+\ No newline at end of file

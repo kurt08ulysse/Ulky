@@ -106,9 +106,11 @@ class SingPayService
         $endpoint = "{$this->baseUrl}/transaction/api/status/{$transactionId}";
 
         if (app()->environment('testing')) {
+            $status = config('services.singpay.testing_status', 'successful');
+
             return [
-                'status' => 'successful',
-                'raw' => ['status' => 'successful'],
+                'status' => $status,
+                'raw' => ['status' => $status],
             ];
         }
 

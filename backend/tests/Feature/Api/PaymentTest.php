@@ -17,10 +17,16 @@ class PaymentTest extends TestCase
 
     private const TESTING_SECRET = 'super-secret-test-key-ulky-2026-abcdefgh';
 
+    private const WEBHOOK_SECRET = 'test-webhook-secret-ulky-2026';
+
     protected function setUp(): void
     {
         parent::setUp();
-        config(['services.clerk.testing_secret' => self::TESTING_SECRET]);
+        config([
+            'services.clerk.testing_secret' => self::TESTING_SECRET,
+            'services.singpay.webhook_secret' => self::WEBHOOK_SECRET,
+            'services.singpay.testing_status' => 'successful',
+        ]);
         $this->seed(RolesSeeder::class);
     }
 
@@ -34,6 +40,21 @@ class PaymentTest extends TestCase
         ];
 
         return JWT::encode($payload, self::TESTING_SECRET, 'HS256');
+    }
+
+    private function signWebhook(array $payload): array
+    {
+        $body = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        $signature = hash_hmac('sha256', $body, self::WEBHOOK_SECRET);
+
+        return [
+            'body' => $body,
+            'headers' => [
+                'X-SingPay-Signature' => $signature,
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ],
+        ];
     }
 
     public function test_un_citoyen_peut_initier_le_paiement_de_son_propre_avis_de_taxe(): void
@@ -139,16 +160,24 @@ class PaymentTest extends TestCase
             'reference' => 'PAY-'.$payment->id.'-'.time(),
             'status' => 'successful',
             'transaction_id' => 'sp_tx_998877',
-            'amount' => 5000, // 5000 FCFA
+            'amount' => 5000,
         ];
 
-        // On appelle le webhook
-        $response = $this->postJson('/api/webhooks/singpay', $payload);
+        $signed = $this->signWebhook($payload);
+
+        $response = $this->call(
+            'POST',
+            '/api/webhooks/singpay',
+            [],
+            [],
+            [],
+            $this->transformHeadersToServerVars($signed['headers']),
+            $signed['body']
+        );
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
 
-        // Vérifications en BDD
         $this->assertDatabaseHas('payments', [
             'id' => $payment->id,
             'status' => 'successful',

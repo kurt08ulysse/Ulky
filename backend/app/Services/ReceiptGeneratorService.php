@@ -1,10 +1,17 @@
 <?php
 
+// QR code généré localement via bacon/bacon-qr-code ^3.1 (backend GD).
+// Aucun appel HTTP sortant : le token de vérification ne fuit jamais vers un tiers.
+// Alternative écartée : simplesoftwareio/simple-qrcode (wrapper Laravel autour de bacon,
+// sans valeur ajoutée et avec un cycle de release plus lent).
+
 namespace App\Services;
 
 use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\ReceiptCounter;
+use BaconQrCode\Renderer\GDLibRenderer;
+use BaconQrCode\Writer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -13,7 +20,7 @@ use Illuminate\Support\Str;
 class ReceiptGeneratorService
 {
     /**
-     * Génère une quittance séquentielle et son PDF associé pour un paiement réussi.
+     * Génère une quittance séquentielle (sans trou) et son PDF associé.
      */
     public function generate(Payment $payment): Receipt
     {
@@ -21,9 +28,7 @@ class ReceiptGeneratorService
         $communeId = $taxNotice->commune_id;
         $year = now()->year;
 
-        // Étape 1 : Génération du numéro de quittance de manière strictement séquentielle
         $receipt = DB::transaction(function () use ($payment, $communeId, $year) {
-            // Verrouille la ligne du compteur pour la commune et l'année en cours
             $counter = ReceiptCounter::where('commune_id', $communeId)
                 ->where('year', $year)
                 ->lockForUpdate()
@@ -40,59 +45,59 @@ class ReceiptGeneratorService
             $counter->last_number += 1;
             $counter->save();
 
-            // Formatage : QTY-COMMUNE-ANNEE-NUMERO (ex: QTY-1-2026-00001)
-            $communeCode = $communeId ? $communeId : 'SYS';
+            $communeCode = $communeId ?: 'SYS';
             $receiptNumber = sprintf(
                 'QTY-%s-%d-%s',
                 $communeCode,
                 $year,
-                str_pad($counter->last_number, 5, '0', STR_PAD_LEFT)
+                str_pad((string) $counter->last_number, 5, '0', STR_PAD_LEFT)
             );
-
-            $qrCodeToken = Str::random(40);
 
             return Receipt::create([
                 'payment_id' => $payment->id,
                 'receipt_number' => $receiptNumber,
-                'qr_code_token' => $qrCodeToken,
+                'qr_code_token' => Str::random(40),
             ]);
         });
 
-        // Étape 2 : Génération du PDF
         $receipt->pdf_path = $this->generatePdf($receipt);
         $receipt->save();
 
         return $receipt;
     }
 
-    /**
-     * Génère le PDF de la quittance et le stocke sur le disque.
-     */
     protected function generatePdf(Receipt $receipt): string
     {
         $payment = $receipt->payment;
         $taxNotice = $payment->taxNotice;
-        $user = $taxNotice->user;
-        $tax = $taxNotice->tax;
 
-        // Préparation des données pour la vue
         $data = [
             'receipt' => $receipt,
             'payment' => $payment,
             'taxNotice' => $taxNotice,
-            'user' => $user,
-            'tax' => $tax,
+            'user' => $taxNotice->user,
+            'tax' => $taxNotice->tax,
             'verification_url' => $receipt->verification_url,
-            // Utilisation d'une API publique gratuite pour les QR codes
-            'qr_code_url' => 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='.urlencode($receipt->verification_url),
+            'qr_code_url' => $this->buildQrDataUri($receipt->verification_url),
         ];
 
-        // Rendu du PDF
         $pdf = Pdf::loadView('receipts.pdf', $data);
 
         $fileName = "receipts/{$receipt->receipt_number}.pdf";
         Storage::disk('public')->put($fileName, $pdf->output());
 
         return $fileName;
+    }
+
+    /**
+     * Renvoie un QR code PNG encodé en data URI base64, prêt pour <img src="...">.
+     */
+    protected function buildQrDataUri(string $payload): string
+    {
+        $renderer = new GDLibRenderer(300, 1);
+        $writer = new Writer($renderer);
+        $png = $writer->writeString($payload);
+
+        return 'data:image/png;base64,'.base64_encode($png);
     }
 }

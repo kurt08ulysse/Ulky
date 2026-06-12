@@ -1,7 +1,5 @@
 import Constants from 'expo-constants';
 import axios from 'axios';
-import { tokenStorage } from '@/services/tokenStorage';
-import { useAuthStore } from '@/store/auth';
 
 const fallbackBaseUrl = 'https://stocks-picking-easter-band.trycloudflare.com/api/v1';
 
@@ -17,23 +15,22 @@ export const api = axios.create({
   },
 });
 
+type ClerkTokenGetter = () => Promise<string | null>;
+
+let clerkTokenGetter: ClerkTokenGetter | null = null;
+
+export function registerClerkTokenGetter(getter: ClerkTokenGetter | null): void {
+  clerkTokenGetter = getter;
+}
+
 api.interceptors.request.use(async (config) => {
-  const token = await tokenStorage.get();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (clerkTokenGetter) {
+    const token = await clerkTokenGetter();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
-
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      await tokenStorage.remove();
-      useAuthStore.getState().setAuthenticated(false);
-    }
-    return Promise.reject(error);
-  }
-);
 
 export const BACKEND_API_URL = backendUrl;

@@ -1,26 +1,15 @@
-import { useEffect } from 'react';
 import { ActivityIndicator, Image, Text, View } from 'react-native';
-import { useRouter, useSegments } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '@clerk/expo';
 import { colors, spacing, typography } from '@/theme';
 
 export default function SplashScreen() {
-  const router = useRouter();
-  const segments = useSegments();
   const { isSignedIn, isLoaded } = useAuth();
 
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-
-    if (isSignedIn && inAuthGroup) {
-      router.replace('/(app)');
-    } else if (!isSignedIn && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    }
-  }, [isSignedIn, isLoaded, segments]);
+  if (isLoaded) {
+    return <Redirect href={isSignedIn ? '/(app)' : '/(auth)/login'} />;
+  }
 
   return (
     <View
@@ -34,7 +23,6 @@ export default function SplashScreen() {
     >
       <StatusBar style="dark" />
 
-      {/* Logo */}
       <View style={{ marginBottom: spacing.lg, alignItems: 'center' }}>
         <Image
           source={require('../../assets/images/icon.png')}
@@ -55,7 +43,6 @@ export default function SplashScreen() {
         </Text>
       </View>
 
-      {/* Spinner */}
       <ActivityIndicator size="large" color={colors.primary[600]} />
     </View>
   );

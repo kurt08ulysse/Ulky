@@ -58,6 +58,10 @@ return [
         'client_id' => env('SINGPAY_CLIENT_ID'),
         'client_secret' => env('SINGPAY_CLIENT_SECRET'),
         'base_url' => env('SINGPAY_BASE_URL', 'https://gateway.singpay.ga/v1'),
+        'webhook_secret' => env('SINGPAY_WEBHOOK_SECRET'),
+        // Injecté en tests pour piloter la réponse de checkTransactionStatus()
+        // sans appel réseau. Valeurs : 'successful' | 'failed' | 'pending'.
+        'testing_status' => env('SINGPAY_TESTING_STATUS'),
     ],
 
 ];

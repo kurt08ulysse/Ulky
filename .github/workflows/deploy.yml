@@ -47,6 +47,9 @@ jobs:
             echo "→ Migrations..."
             php artisan migrate --force
 
+            echo "→ Seed des rôles (idempotent)..."
+            php artisan db:seed --class=RolesSeeder --force
+
             echo "→ Cache..."
             php artisan config:cache
             php artisan route:cache

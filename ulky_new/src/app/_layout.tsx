@@ -1,74 +1,49 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, View, Platform } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ClerkProvider } from '@clerk/expo';
-import * as SecureStore from 'expo-secure-store';
-import { useAuthStore } from '@/store/auth';
+import { ClerkProvider, useAuth } from '@clerk/expo';
+import { tokenCache } from '@clerk/expo/token-cache';
+import { registerClerkTokenGetter } from '@/services/api';
 import '../global.css';
 
 const queryClient = new QueryClient();
 
 const CLERK_PUBLISHABLE_KEY = 'pk_test_bWVycnktZXdlLTk5LmNsZXJrLmFjY291bnRzLmRldiQ';
 
-const tokenCache = Platform.OS === 'web' ? {
-  getToken: async (key: string) => {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  saveToken: async (key: string, value: string) => {
-    try {
-      localStorage.setItem(key, value);
-    } catch {}
-  },
-  clearToken: async (key: string) => {
-    try {
-      localStorage.removeItem(key);
-    } catch {}
-  }
-} : {
-  getToken: (key: string) => SecureStore.getItemAsync(key),
-  saveToken: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  clearToken: (key: string) => SecureStore.deleteItemAsync(key),
-};
-
-
-function RootLayoutNav() {
-  const { hydrate, isHydrating } = useAuthStore();
+function TokenBridge({ children }: { children: React.ReactNode }) {
+  const { isLoaded, getToken } = useAuth();
 
   useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+    registerClerkTokenGetter(() => getToken());
+    return () => registerClerkTokenGetter(null);
+  }, [getToken]);
 
-  if (isHydrating) {
+  if (!isLoaded) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
         <ActivityIndicator size="large" color="#10B981" />
       </View>
     );
   }
 
-  return (
-    <>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(app)" />
-      </Stack>
-      <StatusBar style="dark" />
-    </>
-  );
+  return <>{children}</>;
 }
 
 export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <QueryClientProvider client={queryClient}>
-        <RootLayoutNav />
+        <TokenBridge>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(app)" />
+            <Stack.Screen name="sso-callback" />
+          </Stack>
+          <StatusBar style="dark" />
+        </TokenBridge>
       </QueryClientProvider>
     </ClerkProvider>
   );

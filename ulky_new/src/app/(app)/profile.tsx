@@ -3,46 +3,47 @@ import { Alert, ScrollView, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/expo';
 import { useQueryClient } from '@tanstack/react-query';
-import { logout } from '@/services/auth';
-import { useAuthStore } from '@/store/auth';
+import { logoutBackend } from '@/services/auth';
 import { colors, spacing, typography } from '@/theme';
 import { Button, Card, Badge } from '@/components';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { setAuthenticated } = useAuthStore();
   const { signOut } = useAuth();
   const { user } = useUser();
 
   const [notifications, setNotifications] = useState(true);
   const [sms, setSms] = useState(true);
   const [monthlyReport, setMonthlyReport] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   async function handleLogout() {
     Alert.alert('Déconnexion', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
-      {
-        text: 'Annuler',
-        onPress: () => {},
-      },
+      { text: 'Annuler', style: 'cancel' },
       {
         text: 'Déconnexion',
-        onPress: async () => {
-          try {
-            await logout();
-          } catch {
-            // proceed to local logout even if server call fails
-          }
-          try {
-            await signOut();
-          } catch {
-            // best-effort
-          }
-          queryClient.clear();
-          setAuthenticated(false);
-          router.replace('/(auth)/login');
-        },
         style: 'destructive',
+        onPress: async () => {
+          setLoggingOut(true);
+          try {
+            await logoutBackend();
+          } catch {
+            // best-effort: enregistrement backend seulement
+          }
+          try {
+            // Clerk gère lui-même la redirection via le layout protégé :
+            // dès que isSignedIn devient false, le _layout redirige vers /(auth)/login.
+            // On vide le cache React Query AVANT signOut pour éviter des re-renders avec données orphelines.
+            queryClient.clear();
+            await signOut();
+            // Redirection de secours si le layout ne réagit pas (ex. sur web)
+            router.replace('/(auth)/login');
+          } catch (e) {
+            setLoggingOut(false);
+            Alert.alert('Erreur', 'La déconnexion a échoué. Veuillez réessayer.');
+          }
+        },
       },
     ]);
   }
@@ -248,7 +249,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Logout */}
-        <Button variant="destructive" size="md" onPress={handleLogout}>
+        <Button variant="destructive" size="md" onPress={handleLogout} loading={loggingOut} disabled={loggingOut}>
           Déconnexion
         </Button>
 

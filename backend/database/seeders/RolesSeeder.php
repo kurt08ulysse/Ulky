@@ -6,7 +6,7 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 
 /**
- * Crée les 5 rôles métier ULKY.
+ * Crée les rôles métier ULKY.
  *
  * Séparation rôle / type contribuable (cf. PLAN.MD phase 1) :
  * - Le RÔLE porte les permissions d'accès (qui peut voir quoi, qui encaisse).
@@ -15,6 +15,7 @@ use Spatie\Permission\Models\Role;
  *
  * Rôles :
  * - citizen         : citoyen, accès à ses propres taxes et démarches
+ * - merchant        : commerçant de marché municipal, accès à ses loyers de stalle
  * - municipal_agent : agent municipal, gestion des contribuables et taxes
  * - cashier         : régisseur — valide et encaisse les recettes
  *                     (séparation des tâches phase 3 : ne configure pas les taxes)
@@ -29,6 +30,7 @@ class RolesSeeder extends Seeder
     {
         $roles = [
             'citizen',
+            'merchant',          // commerçant de marché municipal (Phase 5)
             'municipal_agent',
             'cashier',
             'commune_admin',
