@@ -6,22 +6,21 @@ import { useQuery } from '@tanstack/react-query';
 import { getMe } from '@/services/auth';
 import { colors, spacing } from '@/theme';
 
-import { Ionicons } from '@expo/vector-icons';
-
+// Icon components (emoji-based for simplicity)
 function HomeIcon({ color }: { color: any }) {
-  return <Ionicons name="home-outline" size={22} color={color} />;
+  return <Text style={{ fontSize: 20 }}>🏠</Text>;
 }
 
 function ProfileIcon({ color }: { color: any }) {
-  return <Ionicons name="person-outline" size={22} color={color} />;
+  return <Text style={{ fontSize: 20 }}>👤</Text>;
 }
 
 function TaxesIcon({ color }: { color: any }) {
-  return <Ionicons name="card-outline" size={22} color={color} />;
+  return <Text style={{ fontSize: 20 }}>💰</Text>;
 }
 
 function AdminIcon({ color }: { color: any }) {
-  return <Ionicons name="shield-checkmark-outline" size={22} color={color} />;
+  return <Text style={{ fontSize: 20 }}>⚙️</Text>;
 }
 
 export default function AppLayout() {
