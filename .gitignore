@@ -1,43 +1,31 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ─── Secrets & Environnement ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
 
-# dependencies
-node_modules/
+# ─── Frontend (ulky_new/) ──────────────────────────────────────────────────
+ulky_new/node_modules/
+ulky_new/.expo/
+ulky_new/dist/
+ulky_new/.cache/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+# ─── Backend ───────────────────────────────────────────────────────────────
+backend/vendor/
+backend/storage/logs/
+backend/storage/framework/cache/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+backend/bootstrap/cache/
+backend/.phpunit.result.cache
+backend/database/database.sqlite
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
+# ─── OS & Éditeurs ─────────────────────────────────────────────────────────
 .DS_Store
-*.pem
+Thumbs.db
+*.swp
+.idea/
+.vscode/
 
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-example
-
-# generated native folders
-/ios
-/android
+# ─── Agents / outils internes ──────────────────────────────────────────────
+.agents/
+skills-lock.json

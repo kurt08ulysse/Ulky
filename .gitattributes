@@ -1,0 +1,14 @@
+# Force LF sur le serveur pour tous les fichiers texte
+* text=auto eol=lf
+
+# Binaires
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

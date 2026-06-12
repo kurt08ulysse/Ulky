@@ -1,0 +1,61 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # déclenchement manuel possible
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false # ne jamais annuler un déploiement en cours
+
+jobs:
+  deploy:
+    name: Déployer sur VM Ubuntu (staging)
+    runs-on: ubuntu-latest
+    environment: staging # lié aux GitHub Environments + secrets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Rejoindre le réseau Tailscale pour accéder à la VM en SSH
+      - name: Tailscale — rejoindre le réseau privé
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+
+      # 2. Déployer sur la VM via SSH
+      - name: SSH — déploiement Laravel
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_TAILSCALE_IP }}
+          username: ${{ secrets.VM_SSH_USER }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -e
+
+            echo "→ Mise à jour du code..."
+            cd /var/www/ulky/backend
+            git pull origin main
+
+            echo "→ Dépendances Composer..."
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+            echo "→ Migrations..."
+            php artisan migrate --force
+
+            echo "→ Cache..."
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            echo "→ Redémarrage queue worker..."
+            php artisan queue:restart
+
+            echo "→ Rechargement PHP-FPM..."
+            sudo systemctl reload php8.2-fpm
+
+            echo "✅ Déploiement terminé."
