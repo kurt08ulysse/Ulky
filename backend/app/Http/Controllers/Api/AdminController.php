@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminTaxNoticeResource;
 use App\Http\Resources\UserResource;
 use App\Models\AuditLog;
+use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\StallRent;
 use App\Models\Tax;
@@ -58,6 +59,11 @@ class AdminController extends Controller
         $collectedMonth = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->where('created_at', '>=', $thisMonth)->sum('amount');
         $collectedTotal = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->sum('amount');
 
+        // Dépenses (comptabilité régisseur) + solde net.
+        $expensesMonth = $this->scopeToCommune(Expense::query())->where('spent_at', '>=', $thisMonth)->sum('amount');
+        $expensesTotal = $this->scopeToCommune(Expense::query())->sum('amount');
+        $netTotal = $collectedTotal - $expensesTotal;
+
         // Nombre d'avis par statut
         $noticesByStatus = $this->scopeToCommune(TaxNotice::query())
             ->select('status', DB::raw('count(*) as count'))
@@ -103,6 +109,11 @@ class AdminController extends Controller
                 'month' => ['amount' => $collectedMonth,  'formatted' => number_format($collectedMonth / 100, 0, ',', ' ').' FCFA'],
                 'total' => ['amount' => $collectedTotal,  'formatted' => number_format($collectedTotal / 100, 0, ',', ' ').' FCFA'],
             ],
+            'expenses' => [
+                'month' => ['amount' => $expensesMonth, 'formatted' => number_format($expensesMonth / 100, 0, ',', ' ').' FCFA'],
+                'total' => ['amount' => $expensesTotal, 'formatted' => number_format($expensesTotal / 100, 0, ',', ' ').' FCFA'],
+            ],
+            'net' => ['amount' => $netTotal, 'formatted' => number_format($netTotal / 100, 0, ',', ' ').' FCFA'],
             'notices_by_status' => [
                 'pending' => (int) ($noticesByStatus['pending'] ?? 0),
                 'paid' => (int) ($noticesByStatus['paid'] ?? 0),

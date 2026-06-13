@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AdministrativeRequestController;
 use App\Http\Controllers\Api\CitizenReportController;
+use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\MarketStallController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SingPayWebhookController;
@@ -83,6 +84,10 @@ Route::prefix('v1/admin')
 
         // Promotion d'un citoyen au statut commerçant (rôle + numéro)
         Route::post('merchants', [AdminController::class, 'promoteMerchant']);
+
+        // Comptabilité — dépenses de la commune (régisseur/admin)
+        Route::get('expenses', [ExpenseController::class, 'index']);
+        Route::post('expenses', [ExpenseController::class, 'store']);
 
         // Journal d'audit
         Route::get('audit-logs', [AdminController::class, 'auditLogs']);
