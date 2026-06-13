@@ -199,3 +199,40 @@ restant global). Non corrigé ici (décision d'architecture / hors périmètre a
 - ⚠️ **R9 — Token web en stockage non-httpOnly** : sur web, le fallback de cache
   utilise `localStorage` (accessible au JS) — exposition en cas de XSS. Inhérent
   au modèle SPA + Clerk ; à compenser par une CSP stricte côté hébergement web.
+
+---
+
+## 7. Revue 3 — traitement des recommandations
+
+### ✅ R3 — Robustesse des filtres de date (AdminController)
+`taxNotices`, `auditLogs`, `exportCsv` parsaient les dates utilisateur via
+`Carbon::parse()` (exception → 500 sur entrée invalide). Ajout d'un helper
+`parseDate()` tolérant (retourne null si vide/invalide).
+
+### ✅ R6 — Cloisonnement multi-commune (multi-tenant)
+Les routes admin sont désormais scopées par `commune_id` :
+- `super_admin` : accès global ; tout autre rôle admin : sa commune uniquement.
+- Appliqué à `dashboard` (KPIs/paiements via la relation `taxNotice`),
+  `taxNotices`, `showTaxNotice` (404 hors commune), `searchCitizen`,
+  `createTaxNotice` (citoyen résolu dans la commune), `exportCsv`.
+- Helper `scopeToCommune()` + `hasGlobalScope()`. Tests : `AdminCommuneScopeTest`.
+- Limite connue : `audit_logs` n'a pas de colonne `commune_id` → reste global
+  (à traiter par une migration si un cloisonnement strict de l'audit est requis).
+
+### ✅ R7 — Logs console (PII) côté frontend
+Tous les `console.*` de `login.tsx` et `profile.tsx` (dont des logs d'e-mail)
+sont gatés derrière `__DEV__` → aucun log en build de production.
+
+### ✅ R8 — Export CSV web sans authentification
+`adminService.exportCsv` n'utilisait plus `window.open` (qui ne peut pas porter
+l'en-tête `Authorization` → 401 sur web). Remplacé par un `fetch` authentifié
+(token Clerk via le nouveau `getAuthToken()` d'`api.ts`) → blob → téléchargement
+via `<a download>`. Le chemin mobile partage désormais le même en-tête propre.
+
+### ⚠️ Observation — toolchain TypeScript frontend cassée (pré-existant)
+`tsc --noEmit` échoue globalement dans cet environnement : `node_modules/expo/
+tsconfig.base.json` (référencé par `extends` dans `tsconfig.json`) est absent, ce
+qui invalide `jsx`/`lib`/types pour **tout** le projet (y compris des fichiers non
+modifiés). Le job CI frontend `tsc` ne peut donc pas passer en l'état,
+indépendamment des changements de sécurité. À corriger séparément (vérifier la
+version d'Expo/TypeScript et le chemin du tsconfig de base).

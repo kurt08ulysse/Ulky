@@ -24,6 +24,14 @@ export function registerClerkTokenGetter(getter: ClerkTokenGetter | null): void 
   clerkTokenGetter = getter;
 }
 
+/**
+ * Récupère le jeton Clerk courant pour les appels qui ne passent pas par
+ * l'instance Axios (ex. téléchargement de fichier authentifié sur web/mobile).
+ */
+export async function getAuthToken(): Promise<string | null> {
+  return clerkTokenGetter ? clerkTokenGetter() : null;
+}
+
 api.interceptors.request.use(async (config) => {
   if (clerkTokenGetter) {
     const token = await clerkTokenGetter();
