@@ -1,12 +1,12 @@
 import React from 'react';
-import { ScrollView, Text, View, Pressable, Platform } from 'react-native';
+import { ScrollView, Text, View, Pressable } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getMe } from '@/services/auth';
 import { useTaxNotices } from '@/hooks/useTaxes';
-import { colors, spacing, typography, shadows } from '@/theme';
+import { spacing, shadows } from '@/theme';
 import { Card, Badge } from '@/components';
 
 // Couleurs de la charte de Franceville et du Gabon
@@ -36,15 +36,7 @@ export default function HomeScreen() {
     queryFn: getMe,
   });
 
-  const { data: notices, isLoading: isLoadingNotices } = useTaxNotices();
-
-  const today = new Date();
-  const dateString = today.toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const { data: notices } = useTaxNotices();
 
   // Filtrer les avis en attente pour le bandeau d'alerte
   const pendingNotices = notices?.filter(notice => notice.status === 'pending') ?? [];

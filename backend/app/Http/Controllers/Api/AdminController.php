@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\Tax;
 use App\Models\TaxNotice;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -38,23 +39,29 @@ class AdminController extends Controller
      */
     public function dashboard(): JsonResponse
     {
-        $today     = Carbon::today();
-        $thisWeek  = Carbon::now()->startOfWeek();
+        $today = Carbon::today();
+        $thisWeek = Carbon::now()->startOfWeek();
         $thisMonth = Carbon::now()->startOfMonth();
 
+        // Cloisonnement multi-commune : les paiements sont rattachés à un avis,
+        // donc on filtre via la relation taxNotice ; les avis directement.
+        $paymentCommune = fn (Builder $q) => $this->scopeToCommune($q);
+
         // Encaissements en centimes (paiements successful uniquement)
-        $collectedToday  = Payment::successful()->whereDate('created_at', $today)->sum('amount');
-        $collectedWeek   = Payment::successful()->where('created_at', '>=', $thisWeek)->sum('amount');
-        $collectedMonth  = Payment::successful()->where('created_at', '>=', $thisMonth)->sum('amount');
-        $collectedTotal  = Payment::successful()->sum('amount');
+        $collectedToday = Payment::successful()->whereHas('taxNotice', $paymentCommune)->whereDate('created_at', $today)->sum('amount');
+        $collectedWeek = Payment::successful()->whereHas('taxNotice', $paymentCommune)->where('created_at', '>=', $thisWeek)->sum('amount');
+        $collectedMonth = Payment::successful()->whereHas('taxNotice', $paymentCommune)->where('created_at', '>=', $thisMonth)->sum('amount');
+        $collectedTotal = Payment::successful()->whereHas('taxNotice', $paymentCommune)->sum('amount');
 
         // Nombre d'avis par statut
-        $noticesByStatus = TaxNotice::select('status', DB::raw('count(*) as count'))
+        $noticesByStatus = $this->scopeToCommune(TaxNotice::query())
+            ->select('status', DB::raw('count(*) as count'))
             ->groupBy('status')
             ->pluck('count', 'status');
 
         // Top 5 taxes les plus perçues ce mois
-        $topTaxes = TaxNotice::with('tax:id,name')
+        $topTaxes = $this->scopeToCommune(TaxNotice::query())
+            ->with('tax:id,name')
             ->where('status', 'paid')
             ->where('paid_at', '>=', $thisMonth)
             ->select('tax_id', DB::raw('count(*) as count'), DB::raw('sum(base_amount + stamp_amount) as total'))
@@ -64,38 +71,39 @@ class AdminController extends Controller
             ->get()
             ->map(fn ($row) => [
                 'tax_name' => $row->tax?->name ?? '—',
-                'count'    => $row->count,
-                'total'    => $row->total,
+                'count' => $row->count,
+                'total' => $row->total,
                 'total_formatted' => number_format($row->total / 100, 0, ',', ' ').' FCFA',
             ]);
 
         // Encaissements par jour sur les 7 derniers jours (pour le graphique)
         $last7Days = collect(range(6, 0))->map(fn ($i) => Carbon::today()->subDays($i));
         $dailyData = Payment::successful()
+            ->whereHas('taxNotice', $paymentCommune)
             ->where('created_at', '>=', Carbon::today()->subDays(6)->startOfDay())
             ->select(DB::raw('DATE(created_at) as day'), DB::raw('sum(amount) as total'))
             ->groupBy('day')
             ->pluck('total', 'day');
 
         $chartData = $last7Days->map(fn ($day) => [
-            'date'  => $day->toDateString(),
+            'date' => $day->toDateString(),
             'label' => $day->locale('fr')->isoFormat('ddd D'),
             'total' => (int) ($dailyData[$day->toDateString()] ?? 0),
         ])->values();
 
         return response()->json([
             'collected' => [
-                'today'   => ['amount' => $collectedToday,  'formatted' => number_format($collectedToday / 100, 0, ',', ' ').' FCFA'],
-                'week'    => ['amount' => $collectedWeek,   'formatted' => number_format($collectedWeek / 100, 0, ',', ' ').' FCFA'],
-                'month'   => ['amount' => $collectedMonth,  'formatted' => number_format($collectedMonth / 100, 0, ',', ' ').' FCFA'],
-                'total'   => ['amount' => $collectedTotal,  'formatted' => number_format($collectedTotal / 100, 0, ',', ' ').' FCFA'],
+                'today' => ['amount' => $collectedToday,  'formatted' => number_format($collectedToday / 100, 0, ',', ' ').' FCFA'],
+                'week' => ['amount' => $collectedWeek,   'formatted' => number_format($collectedWeek / 100, 0, ',', ' ').' FCFA'],
+                'month' => ['amount' => $collectedMonth,  'formatted' => number_format($collectedMonth / 100, 0, ',', ' ').' FCFA'],
+                'total' => ['amount' => $collectedTotal,  'formatted' => number_format($collectedTotal / 100, 0, ',', ' ').' FCFA'],
             ],
             'notices_by_status' => [
-                'pending'   => (int) ($noticesByStatus['pending']   ?? 0),
-                'paid'      => (int) ($noticesByStatus['paid']      ?? 0),
+                'pending' => (int) ($noticesByStatus['pending'] ?? 0),
+                'paid' => (int) ($noticesByStatus['paid'] ?? 0),
                 'cancelled' => (int) ($noticesByStatus['cancelled'] ?? 0),
             ],
-            'top_taxes'  => $topTaxes,
+            'top_taxes' => $topTaxes,
             'chart_data' => $chartData,
         ]);
     }
@@ -115,6 +123,9 @@ class AdminController extends Controller
         $query = TaxNotice::with(['tax', 'user', 'payment', 'payment.receipt'])
             ->orderBy('created_at', 'desc');
 
+        // Cloisonnement multi-commune
+        $this->scopeToCommune($query);
+
         // Filtre par statut
         if ($status = $request->string('status')->toString()) {
             if (in_array($status, ['pending', 'paid', 'cancelled'])) {
@@ -122,12 +133,12 @@ class AdminController extends Controller
             }
         }
 
-        // Filtre plage de dates (sur created_at)
-        if ($from = $request->string('date_from')->toString()) {
-            $query->where('created_at', '>=', Carbon::parse($from)->startOfDay());
+        // Filtre plage de dates (sur created_at) — parsing tolérant aux entrées invalides
+        if ($from = $this->parseDate($request->string('date_from')->toString())) {
+            $query->where('created_at', '>=', $from->startOfDay());
         }
-        if ($to = $request->string('date_to')->toString()) {
-            $query->where('created_at', '<=', Carbon::parse($to)->endOfDay());
+        if ($to = $this->parseDate($request->string('date_to')->toString())) {
+            $query->where('created_at', '<=', $to->endOfDay());
         }
 
         // Recherche : nom contribuable, téléphone, ou numéro de quittance
@@ -136,7 +147,7 @@ class AdminController extends Controller
                 // Nom ou téléphone du citoyen
                 $q->whereHas('user', function ($uq) use ($search) {
                     $uq->where('name', 'ilike', "%{$search}%")
-                       ->orWhere('phone', 'ilike', "%{$search}%");
+                        ->orWhere('phone', 'ilike', "%{$search}%");
                 });
 
                 // Numéro de quittance (via payment → receipt)
@@ -161,6 +172,12 @@ class AdminController extends Controller
      */
     public function showTaxNotice(TaxNotice $taxNotice): AdminTaxNoticeResource
     {
+        // Cloisonnement multi-commune : un agent non super_admin ne peut pas
+        // consulter un avis d'une autre commune (404 pour ne pas révéler l'existence).
+        if (! $this->hasGlobalScope() && $taxNotice->commune_id !== auth()->user()->commune_id) {
+            abort(404);
+        }
+
         return new AdminTaxNoticeResource(
             $taxNotice->load(['tax', 'user', 'payment', 'payment.receipt'])
         );
@@ -179,15 +196,17 @@ class AdminController extends Controller
     public function createTaxNotice(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'tax_id'       => 'required|integer|exists:taxes,id',
-            'phone'        => 'required|string',
-            'due_date'     => 'nullable|date|after_or_equal:today',
-            'base_amount'  => 'nullable|integer|min:0',
+            'tax_id' => 'required|integer|exists:taxes,id',
+            'phone' => 'required|string',
+            'due_date' => 'nullable|date|after_or_equal:today',
+            'base_amount' => 'nullable|integer|min:0',
             'stamp_amount' => 'nullable|integer|min:0',
         ]);
 
-        // Résolution du citoyen via le téléphone
-        $citizen = User::where('phone', $validated['phone'])->first();
+        // Résolution du citoyen via le téléphone, cloisonnée à la commune de l'agent.
+        $citizen = $this->scopeToCommune(User::query())
+            ->where('phone', $validated['phone'])
+            ->first();
         if (! $citizen) {
             return response()->json([
                 'success' => false,
@@ -198,13 +217,13 @@ class AdminController extends Controller
         $tax = Tax::findOrFail($validated['tax_id']);
 
         $notice = TaxNotice::create([
-            'tax_id'       => $tax->id,
-            'user_id'      => $citizen->id,
-            'base_amount'  => $validated['base_amount']  ?? $tax->base_amount,
+            'tax_id' => $tax->id,
+            'user_id' => $citizen->id,
+            'base_amount' => $validated['base_amount'] ?? $tax->base_amount,
             'stamp_amount' => $validated['stamp_amount'] ?? $tax->stamp_amount,
-            'due_date'     => $validated['due_date'] ?? Carbon::now()->addDays(30)->toDateString(),
-            'status'       => 'pending',
-            'commune_id'   => $citizen->commune_id,
+            'due_date' => $validated['due_date'] ?? Carbon::now()->addDays(30)->toDateString(),
+            'status' => 'pending',
+            'commune_id' => $citizen->commune_id,
         ]);
 
         return (new AdminTaxNoticeResource($notice->load(['tax', 'user'])))
@@ -223,7 +242,8 @@ class AdminController extends Controller
     {
         $request->validate(['phone' => 'required|string|min:4']);
 
-        $citizens = User::where('phone', 'ilike', '%'.$request->string('phone').'%')
+        $citizens = $this->scopeToCommune(User::query())
+            ->where('phone', 'ilike', '%'.$request->string('phone').'%')
             ->select(['id', 'name', 'phone', 'email', 'taxpayer_type', 'commune_id'])
             ->limit(10)
             ->get();
@@ -247,11 +267,11 @@ class AdminController extends Controller
         if ($action = $request->string('action')->toString()) {
             $query->where('action', $action);
         }
-        if ($from = $request->string('date_from')->toString()) {
-            $query->where('created_at', '>=', Carbon::parse($from)->startOfDay());
+        if ($from = $this->parseDate($request->string('date_from')->toString())) {
+            $query->where('created_at', '>=', $from->startOfDay());
         }
-        if ($to = $request->string('date_to')->toString()) {
-            $query->where('created_at', '<=', Carbon::parse($to)->endOfDay());
+        if ($to = $this->parseDate($request->string('date_to')->toString())) {
+            $query->where('created_at', '<=', $to->endOfDay());
         }
 
         $perPage = min((int) $request->integer('per_page', 30), 100);
@@ -272,15 +292,21 @@ class AdminController extends Controller
      */
     public function exportCsv(Request $request): StreamedResponse
     {
-        $from   = $request->string('date_from')->toString() ?: Carbon::now()->startOfMonth()->toDateString();
-        $to     = $request->string('date_to')->toString()   ?: Carbon::now()->toDateString();
+        // Dates tolérantes aux entrées invalides (R3) avec valeurs par défaut.
+        $fromDate = $this->parseDate($request->string('date_from')->toString()) ?? Carbon::now()->startOfMonth();
+        $toDate = $this->parseDate($request->string('date_to')->toString()) ?? Carbon::now();
+        $from = $fromDate->toDateString();
+        $to = $toDate->toDateString();
         $status = $request->string('status')->toString();
 
-        $query = TaxNotice::with(['tax', 'user', 'payment'])
+        $query = TaxNotice::with(['tax', 'user', 'payment', 'payment.receipt'])
             ->whereBetween('created_at', [
-                Carbon::parse($from)->startOfDay(),
-                Carbon::parse($to)->endOfDay(),
+                $fromDate->copy()->startOfDay(),
+                $toDate->copy()->endOfDay(),
             ]);
+
+        // Cloisonnement multi-commune
+        $this->scopeToCommune($query);
 
         if ($status && in_array($status, ['pending', 'paid', 'cancelled'])) {
             $query->where('status', $status);
@@ -294,7 +320,7 @@ class AdminController extends Controller
             $handle = fopen('php://output', 'w');
 
             // BOM UTF-8 pour Excel (Windows)
-            fputs($handle, "\xEF\xBB\xBF");
+            fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, [
                 'N° Avis',
@@ -317,18 +343,18 @@ class AdminController extends Controller
                 fputcsv($handle, [
                     $notice->id,
                     $notice->created_at?->format('d/m/Y H:i'),
-                    $notice->user?->name ?? '—',
-                    $notice->user?->phone ?? '—',
-                    $notice->user?->taxpayer_type ?? '—',
-                    $notice->tax?->name ?? '—',
+                    $this->neutralizeCsvInjection($notice->user?->name ?? '—'),
+                    $this->neutralizeCsvInjection($notice->user?->phone ?? '—'),
+                    $this->neutralizeCsvInjection($notice->user?->taxpayer_type ?? '—'),
+                    $this->neutralizeCsvInjection($notice->tax?->name ?? '—'),
                     number_format($notice->base_amount / 100, 0, ',', ' '),
                     number_format($notice->stamp_amount / 100, 0, ',', ' '),
                     number_format($notice->total_amount / 100, 0, ',', ' '),
                     $notice->status,
                     $notice->paid_at?->format('d/m/Y H:i') ?? '—',
-                    $notice->payment?->operator ?? '—',
-                    $notice->payment?->transaction_id ?? '—',
-                    $notice->payment?->receipt?->receipt_number ?? '—',
+                    $this->neutralizeCsvInjection($notice->payment?->operator ?? '—'),
+                    $this->neutralizeCsvInjection($notice->payment?->transaction_id ?? '—'),
+                    $this->neutralizeCsvInjection($notice->payment?->receipt?->receipt_number ?? '—'),
                 ], separator: ';');
             }
 
@@ -336,5 +362,67 @@ class AdminController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    /**
+     * Neutralise l'injection de formules CSV (CSV/Formula Injection).
+     *
+     * Un contribuable peut contrôler son nom (via Clerk) ; sans cette protection,
+     * une valeur comme "=cmd|'/c calc'!A1" serait interprétée comme une formule
+     * à l'ouverture du CSV dans Excel/LibreOffice côté agent municipal.
+     * On préfixe les valeurs à risque d'une apostrophe pour forcer le mode texte.
+     */
+    private function neutralizeCsvInjection(?string $value): string
+    {
+        $value = (string) $value;
+
+        if ($value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'".$value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Cloisonnement multi-tenant : restreint une requête à la commune de l'agent.
+     *
+     * - super_admin : accès global (aucun filtre).
+     * - tout autre rôle admin : strictement sa propre commune (commune_id du compte).
+     *
+     * Applicable à une requête dont la table porte `commune_id` (TaxNotice, User…)
+     * ou à la sous-requête `whereHas('taxNotice', …)` pour les paiements.
+     */
+    private function scopeToCommune(Builder $query, string $column = 'commune_id'): Builder
+    {
+        $user = auth()->user();
+
+        if (! $user->hasRole('super_admin')) {
+            $query->where($column, $user->commune_id);
+        }
+
+        return $query;
+    }
+
+    /** Vrai si l'agent connecté a une vue globale (super_admin). */
+    private function hasGlobalScope(): bool
+    {
+        return auth()->user()->hasRole('super_admin');
+    }
+
+    /**
+     * Parse une date fournie par l'utilisateur sans jamais lever d'exception.
+     * Retourne null si la valeur est vide ou invalide (évite un 500 sur Carbon::parse).
+     */
+    private function parseDate(?string $value): ?Carbon
+    {
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

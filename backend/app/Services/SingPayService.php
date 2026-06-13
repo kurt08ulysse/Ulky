@@ -18,8 +18,10 @@ class SingPayService
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('services.singpay.base_url'), '/');
-        $this->walletId = config('services.singpay.wallet_id', '');
+        $this->baseUrl = rtrim((string) config('services.singpay.base_url'), '/');
+        // Coalescence vers '' : la config peut renvoyer null (env absente), ce qui
+        // déclencherait un TypeError sur la propriété typée string et un 500 sur /pay.
+        $this->walletId = (string) config('services.singpay.wallet_id', '');
         $this->clientId = config('services.singpay.client_id');
         $this->clientSecret = config('services.singpay.client_secret');
     }

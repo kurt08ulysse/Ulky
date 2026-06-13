@@ -1,4 +1,4 @@
-import { api, BACKEND_API_URL } from '@/services/api';
+import { api, BACKEND_API_URL, getAuthToken } from '@/services/api';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -17,17 +17,17 @@ export type DashboardKpis = {
     paid: number;
     cancelled: number;
   };
-  top_taxes: Array<{
+  top_taxes: {
     tax_name: string;
     count: number;
     total: number;
     total_formatted: string;
-  }>;
-  chart_data: Array<{
+  }[];
+  chart_data: {
     date: string;
     label: string;
     total: number;
-  }>;
+  }[];
 };
 
 export type CitizenPreview = {
@@ -171,28 +171,36 @@ export async function exportCsv(params?: {
   if (params?.date_to) query.set('date_to', params.date_to);
   if (params?.status) query.set('status', params.status);
 
-  // Construire l'URL brute (avec token embarqué) — même base que l'API mais sans /v1 prefix
-  // Le token Clerk est injecté via l'intercepteur Axios pour les appels `api.*`, mais pour
-  // FileSystem.downloadAsync on doit passer le header manuellement.
+  // Même base que l'API mais sans le préfixe /v1. L'endpoint /export/csv est
+  // protégé par le guard Clerk : il faut donc présenter le Bearer token, y
+  // compris sur web (où window.open ne peut PAS porter d'en-tête Authorization).
   const rawUrl = `${BACKEND_API_URL.replace('/v1', '')}/api/v1/admin/export/csv?${query.toString()}`;
+  const filename = `recettes_${params?.date_from ?? 'all'}_${params?.date_to ?? 'all'}.csv`;
+
+  const token = await getAuthToken();
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   if (Platform.OS === 'web') {
-    // Sur web : ouverture dans le navigateur → téléchargement natif
-    window.open(rawUrl, '_blank');
+    // Sur web : requête authentifiée → blob → téléchargement déclenché par un <a>.
+    const response = await fetch(rawUrl, { headers });
+    if (!response.ok) {
+      throw new Error(`Export CSV échoué (HTTP ${response.status}).`);
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
     return;
   }
 
-  // Sur mobile : download temporaire + Share Sheet
-  const filename = `recettes_${params?.date_from ?? 'all'}_${params?.date_to ?? 'all'}.csv`;
+  // Sur mobile : download temporaire authentifié + Share Sheet
   const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-
-  // Récupérer le token Clerk pour l'authentification
-  const tokenRes = await api.get(`${ADMIN_BASE}/dashboard`); // juste pour ne pas exposer le getter
-  const authHeader = tokenRes.config.headers?.Authorization as string | undefined;
-
-  const result = await FileSystem.downloadAsync(rawUrl, fileUri, {
-    headers: authHeader ? { Authorization: authHeader } : {},
-  });
+  const result = await FileSystem.downloadAsync(rawUrl, fileUri, { headers });
 
   if (result.status === 200) {
     const canShare = await Sharing.isAvailableAsync();

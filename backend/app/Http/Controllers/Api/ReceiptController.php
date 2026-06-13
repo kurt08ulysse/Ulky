@@ -19,8 +19,13 @@ class ReceiptController extends Controller
         $user = auth()->user();
         $taxNotice = $receipt->payment->taxNotice;
 
-        // Restriction de sécurité : seuls le propriétaire ou les agents municipaux/admins peuvent télécharger
-        if ($user->hasRole('citizen') && $taxNotice->user_id !== $user->id) {
+        // Restriction de sécurité (deny-by-default) : seuls le propriétaire de l'avis
+        // ou un agent/admin municipal peuvent télécharger la quittance. Tout autre
+        // cas (y compris un utilisateur sans rôle) est refusé.
+        $isOwner = $taxNotice->user_id === $user->id;
+        $isStaff = $user->hasAnyRole(['municipal_agent', 'cashier', 'commune_admin', 'super_admin']);
+
+        if (! $isOwner && ! $isStaff) {
             abort(403, "Vous n'êtes pas autorisé à télécharger cette quittance.");
         }
 

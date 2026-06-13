@@ -100,7 +100,7 @@ export default function LoginScreen() {
 
   // Connexion Google (SSO)
   async function handleGoogleSignIn() {
-    console.log('Initiating Google Sign-In...');
+    if (__DEV__) console.log('Initiating Google Sign-In...');
     setLoading(true);
     try {
       const redirectUrl = AuthSession.makeRedirectUri({ path: 'sso-callback' });
@@ -109,7 +109,7 @@ export default function LoginScreen() {
         redirectUrl,
       });
 
-      console.log('SSO Flow result:', { createdSessionId });
+      if (__DEV__) console.log('SSO Flow result:', { createdSessionId });
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
@@ -118,7 +118,7 @@ export default function LoginScreen() {
         showAlert('Connexion', 'Session non créée. Veuillez réessayer.');
       }
     } catch (error: any) {
-      console.error('Google Sign-In Error:', error);
+      if (__DEV__) console.error('Google Sign-In Error:', error);
       const message = error instanceof Error ? error.message : 'Échec de la connexion. Réessayez.';
       showAlert('Connexion échouée', message);
     } finally {
@@ -128,9 +128,9 @@ export default function LoginScreen() {
 
   // Connexion Classique (Email/Password)
   async function handleSignIn() {
-    console.log('Initiating Email Sign-In...', { email });
+    if (__DEV__) console.log('Initiating Email Sign-In...', { email });
     if (!isLoaded || !signIn) {
-      console.warn('Clerk SignIn is not loaded yet');
+      if (__DEV__) console.warn('Clerk SignIn is not loaded yet');
       return;
     }
     if (!email || !password) {
@@ -147,7 +147,7 @@ export default function LoginScreen() {
       if (error) {
         throw error;
       }
-      console.log('SignIn result:', signIn.status);
+      if (__DEV__) console.log('SignIn result:', signIn.status);
       if (signIn.status === 'complete') {
         await clerk.setActive({ session: signIn.createdSessionId });
         router.replace('/(app)');
@@ -155,7 +155,7 @@ export default function LoginScreen() {
         showAlert('Connexion', `Statut incomplet : ${signIn.status}`);
       }
     } catch (error: any) {
-      console.error('Email Sign-In Error:', error);
+      if (__DEV__) console.error('Email Sign-In Error:', error);
       const message = error.longMessage || error.message || 'Identifiants incorrects. Veuillez réessayer.';
       showAlert('Échec de la connexion', message);
     } finally {
@@ -165,9 +165,9 @@ export default function LoginScreen() {
 
   // Inscription (Email/Password)
   async function handleSignUp() {
-    console.log('Initiating Email Sign-Up...', { signUpEmail });
+    if (__DEV__) console.log('Initiating Email Sign-Up...', { signUpEmail });
     if (!isLoaded || !signUp) {
-      console.warn('Clerk SignUp is not loaded yet');
+      if (__DEV__) console.warn('Clerk SignUp is not loaded yet');
       return;
     }
     if (!signUpFirstName || !signUpLastName || !signUpEmail || !signUpPassword) {
@@ -186,15 +186,15 @@ export default function LoginScreen() {
       if (error) {
         throw error;
       }
-      console.log('SignUp create result:', signUp.status);
+      if (__DEV__) console.log('SignUp create result:', signUp.status);
       const { error: verifyError } = await signUp.verifications.sendEmailCode();
       if (verifyError) {
         throw verifyError;
       }
-      console.log('Email verification prepared');
+      if (__DEV__) console.log('Email verification prepared');
       setPendingVerification(true);
     } catch (error: any) {
-      console.error('Email Sign-Up Error:', error);
+      if (__DEV__) console.error('Email Sign-Up Error:', error);
       const message = error.longMessage || error.message || "L'inscription a échoué. Veuillez réessayer.";
       showAlert("Échec de l'inscription", message);
     } finally {
@@ -204,12 +204,12 @@ export default function LoginScreen() {
 
   // Vérification de l'email
   async function handleVerifyCode() {
-    console.log('Attempting to verify email code...');
+    if (__DEV__) console.log('Attempting to verify email code...');
     if (!isLoaded || !signUp) return;
 
     // Si l'e-mail est déjà marqué comme vérifié sur Clerk, on active directement la session
     if (signUp.verifications.emailAddress.status === 'verified') {
-      console.log('Email already verified. Finalizing session...');
+      if (__DEV__) console.log('Email already verified. Finalizing session...');
       if (signUp.status === 'complete' && signUp.createdSessionId) {
         setLoading(true);
         try {
@@ -217,7 +217,7 @@ export default function LoginScreen() {
           router.replace('/(app)');
           return;
         } catch (activeErr: any) {
-          console.error('Error activating session:', activeErr);
+          if (__DEV__) console.error('Error activating session:', activeErr);
         } finally {
           setLoading(false);
         }
@@ -236,12 +236,12 @@ export default function LoginScreen() {
       if (error) {
         throw error;
       }
-      console.log('Verification result:', signUp.status);
+      if (__DEV__) console.log('Verification result:', signUp.status);
       if (signUp.status === 'complete') {
         await clerk.setActive({ session: signUp.createdSessionId });
         router.replace('/(app)');
       } else {
-        console.log('DEBUG missing requirements:', {
+        if (__DEV__) console.log('DEBUG missing requirements:', {
           missingFields: signUp.missingFields,
           unverifiedFields: signUp.unverifiedFields,
           requiredFields: signUp.requiredFields
@@ -250,20 +250,20 @@ export default function LoginScreen() {
         showAlert('Vérification', `Statut : ${signUp.status}. Champs requis restants : ${missingNames}`);
       }
     } catch (error: any) {
-      console.error('Verification Code Error:', error);
+      if (__DEV__) console.error('Verification Code Error:', error);
 
       // Si l'inscription est complète ou l'email vérifié mais que Clerk lève une erreur (ex: déjà vérifié)
       if (
         (signUp.status === 'complete' || signUp.verifications.emailAddress.status === 'verified') &&
         signUp.createdSessionId
       ) {
-        console.log('Verification was already completed. Finalizing session from catch block...');
+        if (__DEV__) console.log('Verification was already completed. Finalizing session from catch block...');
         try {
           await clerk.setActive({ session: signUp.createdSessionId });
           router.replace('/(app)');
           return;
         } catch (activeErr) {
-          console.error('Error activating session in catch:', activeErr);
+          if (__DEV__) console.error('Error activating session in catch:', activeErr);
         }
       }
 

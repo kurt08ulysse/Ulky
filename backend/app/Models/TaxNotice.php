@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class TaxNotice extends Model
 {
@@ -43,6 +44,18 @@ class TaxNotice extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Relation vers le paiement le plus récent.
+     *
+     * Un avis peut comporter plusieurs tentatives (échec puis succès) ;
+     * on expose la plus récente, utilisée par le tableau de bord admin
+     * et l'export CSV (avec sa quittance éventuelle via payment.receipt).
+     */
+    public function payment(): HasOne
+    {
+        return $this->hasOne(Payment::class)->latestOfMany();
     }
 
     /**

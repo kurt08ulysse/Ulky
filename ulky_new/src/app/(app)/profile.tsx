@@ -23,17 +23,17 @@ export default function ProfileScreen() {
     
     // Appel de secours au backend en arrière-plan sans bloquer
     logoutBackend().catch((err) => {
-      console.warn('Erreur lors de la déconnexion backend (non bloquant):', err);
+      if (__DEV__) console.warn('Erreur lors de la déconnexion backend (non bloquant):', err);
     });
 
     try {
-      console.log('Déconnexion de Clerk...');
+      if (__DEV__) console.log('Déconnexion de Clerk...');
       queryClient.clear();
       await signOut();
-      console.log('Déconnexion Clerk réussie');
+      if (__DEV__) console.log('Déconnexion Clerk réussie');
       router.replace('/(auth)/login');
     } catch (e) {
-      console.error('Erreur lors du signOut Clerk:', e);
+      if (__DEV__) console.error('Erreur lors du signOut Clerk:', e);
       setLoggingOut(false);
       if (Platform.OS === 'web') {
         window.alert('La déconnexion a échoué. Veuillez réessayer.');
