@@ -23,6 +23,10 @@ function AdminIcon({ color }: { color: any }) {
   return <Text style={{ fontSize: 20 }}>⚙️</Text>;
 }
 
+function ReportsIcon() {
+  return <Text style={{ fontSize: 20 }}>📣</Text>;
+}
+
 export default function AppLayout() {
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -78,6 +82,15 @@ export default function AppLayout() {
           title: 'Taxes',
           tabBarLabel: 'Taxes',
           tabBarIcon: ({ color }) => <TaxesIcon color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: 'Signaler',
+          tabBarLabel: 'Signaler',
+          tabBarIcon: () => <ReportsIcon />,
         }}
       />
 
