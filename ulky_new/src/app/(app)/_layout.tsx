@@ -145,6 +145,9 @@ export default function AppLayout() {
           tabBarIcon: ({ color }) => <ProfileIcon color={color} />,
         }}
       />
+
+      {/* Route accessible depuis l'accueil, masquée de la barre d'onglets */}
+      <Tabs.Screen name="officials" options={{ href: null }} />
     </Tabs>
   );
 }
