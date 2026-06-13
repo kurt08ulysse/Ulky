@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\AdministrativeRequestController;
 use App\Http\Controllers\Api\MarketStallController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SingPayWebhookController;
@@ -43,6 +44,12 @@ Route::prefix('v1')->middleware(['clerk.auth', 'throttle:120,1'])->group(functio
     Route::get('my/rents', [StallRentController::class, 'index']);
     Route::get('rents/{stallRent}', [StallRentController::class, 'show']);
     Route::post('rents/{stallRent}/pay', [StallRentController::class, 'pay']);
+
+    // Demandes administratives (isolation par citoyen ; transitions réservées au staff)
+    Route::get('requests', [AdministrativeRequestController::class, 'index']);
+    Route::post('requests', [AdministrativeRequestController::class, 'store']);
+    Route::get('requests/{administrativeRequest}', [AdministrativeRequestController::class, 'show']);
+    Route::post('requests/{administrativeRequest}/transition', [AdministrativeRequestController::class, 'transition']);
 
     // Quittances
     Route::get('receipts/{receipt}', [ReceiptController::class, 'download']);
