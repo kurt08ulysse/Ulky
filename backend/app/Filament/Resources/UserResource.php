@@ -31,6 +31,16 @@ class UserResource extends Resource
                     ->required(),
                 Forms\Components\TextInput::make('commune_id')
                     ->numeric(),
+                // Attribution des rôles (citizen, merchant, municipal_agent, cashier,
+                // commune_admin, super_admin). C'est ICI que la mairie crée ses
+                // admins/agents — plus besoin de la ligne de commande.
+                Forms\Components\Select::make('roles')
+                    ->label('Rôles')
+                    ->relationship('roles', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->helperText('Sélectionnez un ou plusieurs rôles (ex. municipal_agent, super_admin).'),
                 // Mot de passe back-office uniquement (le hachage est géré par le cast
                 // "hashed" du modèle). Requis à la création, conservé si laissé vide en édition.
                 Forms\Components\TextInput::make('password')
@@ -59,6 +69,9 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('commune_id')
                     ->numeric()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('roles.name')
+                    ->label('Rôles')
+                    ->badge(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
