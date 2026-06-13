@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\Payable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,8 +15,14 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
  * Équivalent de TaxNotice mais pour les commerçants du marché.
  * Le paiement passe par SingPay via le socle polymorphe (Payment.payable → Receipt).
  */
-class StallRent extends Model
+class StallRent extends Model implements Payable
 {
+    public function markAsPaid(): void
+    {
+        $this->status = 'paid';
+        $this->paid_at = now();
+    }
+
     protected $fillable = [
         'market_stall_id',
         'occupant_id',

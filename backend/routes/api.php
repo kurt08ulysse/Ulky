@@ -50,6 +50,7 @@ Route::prefix('v1')->middleware(['clerk.auth', 'throttle:120,1'])->group(functio
     Route::post('requests', [AdministrativeRequestController::class, 'store']);
     Route::get('requests/{administrativeRequest}', [AdministrativeRequestController::class, 'show']);
     Route::post('requests/{administrativeRequest}/transition', [AdministrativeRequestController::class, 'transition']);
+    Route::post('requests/{administrativeRequest}/pay', [AdministrativeRequestController::class, 'pay']);
 
     // Quittances
     Route::get('receipts/{receipt}', [ReceiptController::class, 'download']);

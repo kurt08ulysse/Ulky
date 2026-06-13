@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdministrativeRequest;
 use App\Models\Receipt;
 use App\Models\StallRent;
 use Illuminate\Support\Facades\Storage;
@@ -56,7 +57,7 @@ class ReceiptController extends Controller
 
         $payable = $receipt->payment->payable;
 
-        // Le template de vérification diffère selon l'objet réglé : taxe vs loyer.
+        // Le template de vérification diffère selon l'objet réglé.
         if ($payable instanceof StallRent) {
             return view('receipts.rent_verify', [
                 'receipt' => $receipt,
@@ -65,6 +66,15 @@ class ReceiptController extends Controller
                 'occupant' => $payable->occupant,
                 'stall' => $payable->stall,
                 'market' => $payable->stall?->market,
+            ]);
+        }
+
+        if ($payable instanceof AdministrativeRequest) {
+            return view('receipts.demarche_verify', [
+                'receipt' => $receipt,
+                'payment' => $receipt->payment,
+                'request' => $payable,
+                'user' => $payable->user,
             ]);
         }
 

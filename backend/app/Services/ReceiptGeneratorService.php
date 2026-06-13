@@ -7,6 +7,7 @@
 
 namespace App\Services;
 
+use App\Models\AdministrativeRequest;
 use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\ReceiptCounter;
@@ -80,7 +81,7 @@ class ReceiptGeneratorService
             'qr_code_url' => $this->buildQrDataUri($receipt->verification_url),
         ];
 
-        // Le template diffère selon l'objet réglé : taxe vs loyer de marché.
+        // Le template diffère selon l'objet réglé : taxe, loyer ou démarche.
         if ($payable instanceof StallRent) {
             $view = 'receipts.rent_pdf';
             $data = $common + [
@@ -88,6 +89,12 @@ class ReceiptGeneratorService
                 'occupant' => $payable->occupant,
                 'stall' => $payable->stall,
                 'market' => $payable->stall?->market,
+            ];
+        } elseif ($payable instanceof AdministrativeRequest) {
+            $view = 'receipts.demarche_pdf';
+            $data = $common + [
+                'request' => $payable,
+                'user' => $payable->user,
             ];
         } else {
             $view = 'receipts.pdf';

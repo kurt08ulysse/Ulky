@@ -2,14 +2,21 @@
 
 namespace App\Models;
 
+use App\Contracts\Payable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
-class TaxNotice extends Model
+class TaxNotice extends Model implements Payable
 {
+    public function markAsPaid(): void
+    {
+        $this->status = 'paid';
+        $this->paid_at = now();
+    }
+
     protected $fillable = [
         'tax_id',
         'user_id',

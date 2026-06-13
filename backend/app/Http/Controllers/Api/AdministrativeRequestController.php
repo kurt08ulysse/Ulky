@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdministrativeRequestResource;
 use App\Models\AdministrativeRequest;
+use App\Services\SingPayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -92,6 +93,8 @@ class AdministrativeRequestController extends Controller
         $validated = $request->validate([
             'to_status' => 'required|string|in:'.implode(',', AdministrativeRequest::STATUSES),
             'note' => 'nullable|string',
+            // La mairie peut fixer/ajuster les frais de la démarche lors du traitement.
+            'fee_amount' => 'nullable|integer|min:0',
         ]);
 
         if (! $administrativeRequest->canTransitionTo($validated['to_status'])) {
@@ -99,6 +102,10 @@ class AdministrativeRequestController extends Controller
                 'success' => false,
                 'message' => "Transition non autorisée : {$administrativeRequest->status} → {$validated['to_status']}.",
             ], 422);
+        }
+
+        if (array_key_exists('fee_amount', $validated) && $validated['fee_amount'] !== null) {
+            $administrativeRequest->fee_amount = $validated['fee_amount'];
         }
 
         // La note est portée par l'événement de transition (append-only) via le hook updating.
@@ -110,6 +117,66 @@ class AdministrativeRequestController extends Controller
             'success' => true,
             'message' => 'Statut mis à jour.',
             'data' => new AdministrativeRequestResource($administrativeRequest->load('events')),
+        ]);
+    }
+
+    /**
+     * Le demandeur règle les frais de sa démarche via SingPay (même rail → quittance).
+     */
+    public function pay(AdministrativeRequest $administrativeRequest, Request $request, SingPayService $singPayService): JsonResponse
+    {
+        Gate::authorize('view', $administrativeRequest);
+
+        if ($administrativeRequest->fee_amount <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun frais à régler pour cette démarche.',
+            ], 422);
+        }
+
+        if ($administrativeRequest->payment_status === 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Les frais de cette démarche ont déjà été réglés.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'operator' => 'required|in:airtel_money,moov_money',
+            'phone' => 'required|string',
+        ]);
+
+        $payment = $administrativeRequest->payments()->create([
+            'amount' => $administrativeRequest->total_amount,
+            'operator' => $validated['operator'],
+            'phone' => $validated['phone'],
+            'status' => 'pending',
+        ]);
+
+        $result = $singPayService->initiatePayment($payment);
+
+        if (! $result['success']) {
+            $payment->update(['status' => 'failed']);
+
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Échec de l\'initiation du paiement.',
+            ], 422);
+        }
+
+        $payment->update([
+            'transaction_id' => $result['transaction_id'] ?? null,
+            'raw_response' => $result['raw'] ?? null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Paiement initié avec succès. Veuillez valider le push sur votre téléphone.',
+            'payment' => [
+                'id' => $payment->id,
+                'transaction_id' => $payment->transaction_id,
+                'status' => $payment->status,
+            ],
         ]);
     }
 }

@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Contracts\Payable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Str;
 
 /**
@@ -23,7 +26,7 @@ use Illuminate\Support\Str;
  * Chaque transition (et la création) est tracée automatiquement dans
  * administrative_request_events (append-only), pour l'API comme pour le back-office.
  */
-class AdministrativeRequest extends Model
+class AdministrativeRequest extends Model implements Payable
 {
     public const STATUSES = ['submitted', 'in_review', 'additional_info', 'approved', 'rejected', 'closed'];
 
@@ -42,7 +45,10 @@ class AdministrativeRequest extends Model
         'type',
         'title',
         'description',
+        'fee_amount',
         'status',
+        'payment_status',
+        'paid_at',
         'metadata',
         'commune_id',
     ];
@@ -51,7 +57,25 @@ class AdministrativeRequest extends Model
         'metadata' => 'array',
         'commune_id' => 'integer',
         'user_id' => 'integer',
+        'fee_amount' => 'integer',
+        'paid_at' => 'datetime',
     ];
+
+    /** Montant à régler (contrat homogène avec TaxNotice/StallRent). */
+    public function getTotalAmountAttribute(): int
+    {
+        return $this->fee_amount;
+    }
+
+    /**
+     * Paiement d'une démarche : effet sur payment_status UNIQUEMENT.
+     * Le statut de workflow (status) reste piloté par la mairie.
+     */
+    public function markAsPaid(): void
+    {
+        $this->payment_status = 'paid';
+        $this->paid_at = now();
+    }
 
     /**
      * Note rattachée à la prochaine transition de statut (non persistée comme
@@ -105,6 +129,16 @@ class AdministrativeRequest extends Model
     public function events(): HasMany
     {
         return $this->hasMany(AdministrativeRequestEvent::class)->orderBy('created_at');
+    }
+
+    public function payments(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payable');
+    }
+
+    public function payment(): MorphOne
+    {
+        return $this->morphOne(Payment::class, 'payable')->latestOfMany();
     }
 
     public function scopeForUser(Builder $query, int $userId): Builder
