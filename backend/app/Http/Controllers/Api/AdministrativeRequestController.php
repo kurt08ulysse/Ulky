@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\HandlesAttachments;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdministrativeRequestResource;
+use App\Http\Resources\AttachmentResource;
 use App\Models\AdministrativeRequest;
 use App\Services\SingPayService;
 use Illuminate\Http\JsonResponse;
@@ -20,12 +22,14 @@ use Illuminate\Support\Facades\Gate;
  */
 class AdministrativeRequestController extends Controller
 {
+    use HandlesAttachments;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', AdministrativeRequest::class);
 
         $user = auth()->user();
-        $query = AdministrativeRequest::with('events')->orderBy('created_at', 'desc');
+        $query = AdministrativeRequest::with(['events', 'attachments'])->orderBy('created_at', 'desc');
 
         $isStaff = $user->hasAnyRole(['municipal_agent', 'cashier', 'commune_admin', 'super_admin']);
 
@@ -70,7 +74,7 @@ class AdministrativeRequestController extends Controller
             'commune_id' => $user->commune_id,
         ]);
 
-        return (new AdministrativeRequestResource($administrativeRequest->load('events')))
+        return (new AdministrativeRequestResource($administrativeRequest->load(['events', 'attachments'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -79,7 +83,7 @@ class AdministrativeRequestController extends Controller
     {
         Gate::authorize('view', $administrativeRequest);
 
-        return new AdministrativeRequestResource($administrativeRequest->load('events'));
+        return new AdministrativeRequestResource($administrativeRequest->load(['events', 'attachments']));
     }
 
     /**
@@ -116,7 +120,7 @@ class AdministrativeRequestController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Statut mis à jour.',
-            'data' => new AdministrativeRequestResource($administrativeRequest->load('events')),
+            'data' => new AdministrativeRequestResource($administrativeRequest->load(['events', 'attachments'])),
         ]);
     }
 
@@ -178,5 +182,17 @@ class AdministrativeRequestController extends Controller
                 'status' => $payment->status,
             ],
         ]);
+    }
+
+    /**
+     * Ajoute une pièce jointe (photo/PDF) à sa propre démarche.
+     */
+    public function attach(AdministrativeRequest $administrativeRequest, Request $request): JsonResponse
+    {
+        Gate::authorize('view', $administrativeRequest);
+
+        $attachment = $this->storeAttachment($administrativeRequest, $request);
+
+        return (new AttachmentResource($attachment))->response()->setStatusCode(201);
     }
 }

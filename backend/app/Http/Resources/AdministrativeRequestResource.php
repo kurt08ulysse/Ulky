@@ -43,6 +43,8 @@ class AdministrativeRequestResource extends JsonResource
                 'actor_id' => $event->actor_id,
                 'created_at' => $event->created_at?->toIso8601String(),
             ])),
+
+            'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }
 }

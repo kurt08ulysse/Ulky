@@ -54,12 +54,14 @@ Route::prefix('v1')->middleware(['clerk.auth', 'throttle:120,1'])->group(functio
     Route::get('requests/{administrativeRequest}', [AdministrativeRequestController::class, 'show']);
     Route::post('requests/{administrativeRequest}/transition', [AdministrativeRequestController::class, 'transition']);
     Route::post('requests/{administrativeRequest}/pay', [AdministrativeRequestController::class, 'pay']);
+    Route::post('requests/{administrativeRequest}/attachments', [AdministrativeRequestController::class, 'attach']);
 
     // Signalements citoyens (isolation par citoyen ; traitement réservé au staff)
     Route::get('reports', [CitizenReportController::class, 'index']);
     Route::post('reports', [CitizenReportController::class, 'store']);
     Route::get('reports/{citizenReport}', [CitizenReportController::class, 'show']);
     Route::post('reports/{citizenReport}/transition', [CitizenReportController::class, 'transition']);
+    Route::post('reports/{citizenReport}/attachments', [CitizenReportController::class, 'attach']);
 
     // Élus de la commune (présentationnel, lecture seule)
     Route::get('officials', [OfficialController::class, 'index']);
