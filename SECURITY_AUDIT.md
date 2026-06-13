@@ -116,3 +116,86 @@ Chaîne CI rejouée en local de bout en bout (pint → migrate → seed → test
 - **Création d'avis / de taxes** : réservée aux rôles agents via Policies.
 - **Secrets** : aucun secret réel versionné ; tout provient de variables
   d'environnement.
+
+---
+
+## 5. Isolation par utilisateur, multi-tenant & montée en charge (revue 2)
+
+### ✅ V7 — Fuite d'isolation sur `GET /tax-notices` — *Élevé*
+La liste restreignait uniquement le rôle `citizen` à ses propres avis ; **tout
+autre compte non-admin** (commerçant `merchant`, ou utilisateur sans rôle) tombait
+dans la branche « agent » et pouvait **énumérer les avis de TOUS les
+contribuables**. Contraire au principe « chacun ne voit que ses données ».
+**Correctif** : logique inversée en deny-by-default — seuls
+`municipal_agent | cashier | commune_admin | super_admin` voient les avis des
+autres ; tout le reste est filtré sur `user_id = soi`. Tests ajoutés
+(`TaxNoticeIsolationTest` : commerçant, compte sans rôle, agent).
+
+### ✅ V8 — Course au provisioning multi-appareils — *Fiabilité à l'échelle*
+`ClerkAuthenticate::provisionUser` faisait `User::create()` : deux connexions
+simultanées d'un même nouvel utilisateur (plusieurs appareils, ou webhook en
+parallèle) provoquaient une violation d'unicité `clerk_id` → 500.
+**Correctif** : `firstOrCreate()` idempotent + assignation de rôle seulement à la
+création réelle.
+
+### Isolation — état après correctifs (vérifié)
+| Endpoint | Citoyen / Commerçant | Agent / Admin |
+|---|---|---|
+| `GET /tax-notices` | uniquement les siens ✅ | tous (filtre `user_id` optionnel) |
+| `GET /tax-notices/{id}` | seulement si propriétaire (Policy `view`) ✅ | tous |
+| `POST /tax-notices/{id}/pay` | seulement les siens (Policy `view`) ✅ | — |
+| `PUT …/cancel`, `POST /tax-notices` | 403 ✅ | autorisé (Policy) |
+| `GET /taxes` (référentiel) | 403 (Policy `viewAny`) ✅ | autorisé |
+| `GET /receipts/{id}` | propriétaire seulement ✅ | agents |
+| `/api/v1/admin/*` | 403 via `admin.role` ✅ | autorisé |
+| `GET /auth/me` | son propre profil ✅ | son profil |
+
+→ Le modèle « chacun n'accède qu'à sa page » (type WhatsApp) est désormais
+respecté pour les citoyens **et** les commerçants.
+
+### Montée en charge (500 / 1 000 / 2 000 appareils) — analyse
+- **Auth stateless** : JWT Clerk vérifié à chaque requête via JWKS mis en cache
+  5 min ; aucune session serveur → scalabilité horizontale, pas d'état partagé.
+- **Base de données** : PostgreSQL Neon avec *pooler* de connexions (cf.
+  `.env.example`) → supporte un grand nombre de clients concurrents.
+- **Recherche utilisateur** : `clerk_id` est unique et indexé (lookup O(log n)).
+- **Rate-limit** : `throttle:120,1` par utilisateur (et `120,1` admin) → 2 000
+  appareils = 2 000 compteurs indépendants, pas de blocage mutuel.
+- **Quittances** : numérotation séquentielle protégée par `lockForUpdate()` →
+  pas de doublon sous concurrence.
+- **Provisioning** : désormais idempotent (V8).
+
+→ Aucun goulot d'étranglement structurel : l'architecture supporte des milliers
+d'appareils. Recommandations d'exploitation : activer un cache partagé
+(Redis : déjà prévu dans la config) pour le rate-limit en multi-instances, et
+surveiller la taille du pool Neon.
+
+### ⚠️ R6 — Cloisonnement multi-commune (multi-tenant) non appliqué
+Les routes admin (`AdminController`) renvoient les avis/recettes de **toutes les
+communes**, sans filtrer par `commune_id`. Un `commune_admin` de la commune A voit
+les données de la commune B. À implémenter lors de la phase 2 multi-tenant :
+scoper les requêtes admin sur `commune_id` du `commune_admin` (le `super_admin`
+restant global). Non corrigé ici (décision d'architecture / hors périmètre actuel).
+
+---
+
+## 6. Sécurité du frontend (Expo / React Native)
+
+- ✅ **Clés** : seule la clé Clerk **publishable** (`pk_test_…`) est présente
+  côté client — c'est public par conception. Aucune `CLERK_SECRET_KEY` ni secret
+  SingPay côté frontend.
+- ✅ **Stockage du token** : `tokenCache` de `@clerk/expo` (Expo SecureStore /
+  Keychain sur mobile). Le bearer est injecté à la volée via un intercepteur Axios.
+- ✅ **Garde d'accès** : `(app)/_layout` redirige les non-connectés ; l'onglet
+  Admin est masqué pour les non-agents — défense en profondeur, l'autorité reste
+  le backend (`admin.role`).
+- ⚠️ **R7 — Logs console verbeux** (`login.tsx`) : `console.log`/`console.error`
+  tracent l'e-mail et les statuts d'auth. À retirer (ou conditionner à `__DEV__`)
+  pour éviter la fuite de PII dans les logs de prod.
+- ⚠️ **R8 — Export CSV web sans en-tête d'auth** : `adminService.exportCsv` ouvre
+  l'URL via `window.open` (web), qui ne peut pas porter le header `Authorization`
+  → l'endpoint protégé renverra 401 sur web. Bug fonctionnel (pas une faille) :
+  prévoir un téléchargement authentifié (fetch + blob) ou un lien signé temporaire.
+- ⚠️ **R9 — Token web en stockage non-httpOnly** : sur web, le fallback de cache
+  utilise `localStorage` (accessible au JS) — exposition en cas de XSS. Inhérent
+  au modèle SPA + Clerk ; à compenser par une CSP stricte côté hébergement web.

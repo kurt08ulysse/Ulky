@@ -144,16 +144,23 @@ class ClerkAuthenticate
             $phone = $data['phone_numbers'][0]['phone_number'] ?? null;
             $name = trim(($data['first_name'] ?? '').' '.($data['last_name'] ?? '')) ?: 'Utilisateur';
 
+            // firstOrCreate : idempotent sous charge. Si le même utilisateur ouvre
+            // plusieurs appareils simultanément (ou si le webhook arrive en parallèle),
+            // on ne déclenche pas de violation de contrainte d'unicité sur clerk_id.
             /** @var User $user */
-            $user = User::create([
-                'clerk_id' => $clerkId,
-                'name' => $name,
-                'email' => $email,
-                'phone' => $phone,
-            ]);
+            $user = User::firstOrCreate(
+                ['clerk_id' => $clerkId],
+                [
+                    'name' => $name,
+                    'email' => $email,
+                    'phone' => $phone,
+                ]
+            );
 
-            // Rôle par défaut : citoyen
-            $user->assignRole('citizen');
+            // Rôle par défaut : citoyen (seulement à la création réelle)
+            if ($user->wasRecentlyCreated && $user->roles->isEmpty()) {
+                $user->assignRole('citizen');
+            }
 
             Log::info("ClerkAuthenticate: miroir créé par filet pour clerk_id={$clerkId}");
 

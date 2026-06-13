@@ -26,14 +26,19 @@ class TaxNoticeController extends Controller
         $user = auth()->user();
         $query = TaxNotice::with(['tax', 'user']);
 
-        // Filtrage de sécurité : un citoyen ne peut voir que ses propres avis
-        if ($user->hasRole('citizen')) {
-            $query->where('user_id', $user->id);
-        } else {
-            // Filtrage optionnel pour les agents (par statut ou par contribuable)
+        // Filtrage de sécurité (deny-by-default) : seuls les agents/admins de la
+        // mairie voient les avis des autres contribuables. Tout autre utilisateur
+        // — citoyen, commerçant, ou compte sans rôle — est strictement limité à
+        // ses propres avis (isolation par utilisateur, façon « chacun sa boîte »).
+        $isStaff = $user->hasAnyRole(['municipal_agent', 'cashier', 'commune_admin', 'super_admin']);
+
+        if ($isStaff) {
+            // Filtrage optionnel pour les agents (par contribuable)
             if ($request->has('user_id')) {
                 $query->where('user_id', $request->integer('user_id'));
             }
+        } else {
+            $query->where('user_id', $user->id);
         }
 
         // Filtrage par statut
