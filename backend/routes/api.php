@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AdministrativeRequestController;
+use App\Http\Controllers\Api\CitizenReportController;
 use App\Http\Controllers\Api\MarketStallController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SingPayWebhookController;
@@ -51,6 +52,12 @@ Route::prefix('v1')->middleware(['clerk.auth', 'throttle:120,1'])->group(functio
     Route::get('requests/{administrativeRequest}', [AdministrativeRequestController::class, 'show']);
     Route::post('requests/{administrativeRequest}/transition', [AdministrativeRequestController::class, 'transition']);
     Route::post('requests/{administrativeRequest}/pay', [AdministrativeRequestController::class, 'pay']);
+
+    // Signalements citoyens (isolation par citoyen ; traitement réservé au staff)
+    Route::get('reports', [CitizenReportController::class, 'index']);
+    Route::post('reports', [CitizenReportController::class, 'store']);
+    Route::get('reports/{citizenReport}', [CitizenReportController::class, 'show']);
+    Route::post('reports/{citizenReport}/transition', [CitizenReportController::class, 'transition']);
 
     // Quittances
     Route::get('receipts/{receipt}', [ReceiptController::class, 'download']);
