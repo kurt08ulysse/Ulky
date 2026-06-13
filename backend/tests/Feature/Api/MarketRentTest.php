@@ -194,4 +194,49 @@ class MarketRentTest extends TestCase
             ->assertSee('Awa NDONG')
             ->assertSee('Loyer');
     }
+
+    public function test_le_rejeu_du_webhook_loyer_est_idempotent(): void
+    {
+        $merchant = User::factory()->create(['clerk_id' => 'user_merchant_idem']);
+        $merchant->assignRole('merchant');
+        $rent = $this->makeRent($merchant);
+
+        $payment = $rent->payments()->create([
+            'amount' => $rent->total_amount,
+            'operator' => 'airtel_money',
+            'phone' => '+24166000000',
+            'status' => 'pending',
+        ]);
+
+        $payload = [
+            'reference' => 'PAY-'.$payment->id.'-'.time(),
+            'status' => 'successful',
+            'transaction_id' => 'sp_rent_idem',
+        ];
+
+        $send = function () use ($payload) {
+            $signed = $this->signWebhook($payload);
+
+            return $this->call(
+                'POST',
+                '/api/webhooks/singpay',
+                [],
+                [],
+                [],
+                $this->transformHeadersToServerVars($signed['headers']),
+                $signed['body']
+            );
+        };
+
+        // Premier envoi : confirme et génère la quittance.
+        $send()->assertStatus(200);
+        // Rejeu du MÊME webhook : aucun doublon.
+        $send()->assertStatus(200);
+
+        // Une seule quittance, un seul paiement confirmé, loyer payé une fois.
+        $this->assertSame(1, $payment->fresh()->receipt()->count());
+        $this->assertDatabaseCount('receipts', 1);
+        $this->assertDatabaseHas('stall_rents', ['id' => $rent->id, 'status' => 'paid']);
+        $this->assertSame('successful', $payment->fresh()->status);
+    }
 }

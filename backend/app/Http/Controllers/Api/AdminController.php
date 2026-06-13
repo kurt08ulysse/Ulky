@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminTaxNoticeResource;
 use App\Models\AuditLog;
 use App\Models\Payment;
+use App\Models\StallRent;
 use App\Models\Tax;
 use App\Models\TaxNotice;
 use App\Models\User;
@@ -43,15 +44,17 @@ class AdminController extends Controller
         $thisWeek = Carbon::now()->startOfWeek();
         $thisMonth = Carbon::now()->startOfMonth();
 
-        // Cloisonnement multi-commune : les paiements sont rattachés à un avis,
-        // donc on filtre via la relation taxNotice ; les avis directement.
+        // Cloisonnement multi-commune : un paiement règle un avis de taxe OU un
+        // loyer (relation polymorphe payable) ; les deux portent commune_id.
+        // Les recettes agrègent donc taxes + loyers de la commune.
+        $payableTypes = [TaxNotice::class, StallRent::class];
         $paymentCommune = fn (Builder $q) => $this->scopeToCommune($q);
 
         // Encaissements en centimes (paiements successful uniquement)
-        $collectedToday = Payment::successful()->whereHas('taxNotice', $paymentCommune)->whereDate('created_at', $today)->sum('amount');
-        $collectedWeek = Payment::successful()->whereHas('taxNotice', $paymentCommune)->where('created_at', '>=', $thisWeek)->sum('amount');
-        $collectedMonth = Payment::successful()->whereHas('taxNotice', $paymentCommune)->where('created_at', '>=', $thisMonth)->sum('amount');
-        $collectedTotal = Payment::successful()->whereHas('taxNotice', $paymentCommune)->sum('amount');
+        $collectedToday = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->whereDate('created_at', $today)->sum('amount');
+        $collectedWeek = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->where('created_at', '>=', $thisWeek)->sum('amount');
+        $collectedMonth = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->where('created_at', '>=', $thisMonth)->sum('amount');
+        $collectedTotal = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->sum('amount');
 
         // Nombre d'avis par statut
         $noticesByStatus = $this->scopeToCommune(TaxNotice::query())
@@ -79,7 +82,7 @@ class AdminController extends Controller
         // Encaissements par jour sur les 7 derniers jours (pour le graphique)
         $last7Days = collect(range(6, 0))->map(fn ($i) => Carbon::today()->subDays($i));
         $dailyData = Payment::successful()
-            ->whereHas('taxNotice', $paymentCommune)
+            ->whereHasMorph('payable', $payableTypes, $paymentCommune)
             ->where('created_at', '>=', Carbon::today()->subDays(6)->startOfDay())
             ->select(DB::raw('DATE(created_at) as day'), DB::raw('sum(amount) as total'))
             ->groupBy('day')
