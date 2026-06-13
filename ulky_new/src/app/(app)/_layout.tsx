@@ -27,6 +27,10 @@ function ReportsIcon() {
   return <Text style={{ fontSize: 20 }}>📣</Text>;
 }
 
+function DemarchesIcon() {
+  return <Text style={{ fontSize: 20 }}>📄</Text>;
+}
+
 export default function AppLayout() {
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -82,6 +86,15 @@ export default function AppLayout() {
           title: 'Taxes',
           tabBarLabel: 'Taxes',
           tabBarIcon: ({ color }) => <TaxesIcon color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="demarches"
+        options={{
+          title: 'Démarches',
+          tabBarLabel: 'Démarches',
+          tabBarIcon: () => <DemarchesIcon />,
         }}
       />
 
