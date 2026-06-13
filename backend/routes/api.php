@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdministrativeRequestController;
 use App\Http\Controllers\Api\CitizenReportController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\MarketStallController;
+use App\Http\Controllers\Api\OfficialController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SingPayWebhookController;
 use App\Http\Controllers\Api\StallRentController;
@@ -59,6 +60,9 @@ Route::prefix('v1')->middleware(['clerk.auth', 'throttle:120,1'])->group(functio
     Route::post('reports', [CitizenReportController::class, 'store']);
     Route::get('reports/{citizenReport}', [CitizenReportController::class, 'show']);
     Route::post('reports/{citizenReport}/transition', [CitizenReportController::class, 'transition']);
+
+    // Élus de la commune (présentationnel, lecture seule)
+    Route::get('officials', [OfficialController::class, 'index']);
 
     // Quittances
     Route::get('receipts/{receipt}', [ReceiptController::class, 'download']);
