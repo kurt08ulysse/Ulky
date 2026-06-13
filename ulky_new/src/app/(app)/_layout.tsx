@@ -31,6 +31,10 @@ function DemarchesIcon() {
   return <Text style={{ fontSize: 20 }}>📄</Text>;
 }
 
+function CommercantIcon() {
+  return <Text style={{ fontSize: 20 }}>🏪</Text>;
+}
+
 export default function AppLayout() {
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -45,6 +49,9 @@ export default function AppLayout() {
   const isAdmin = me?.roles?.some((r) =>
     ['municipal_agent', 'cashier', 'commune_admin', 'super_admin'].includes(r)
   ) ?? false;
+
+  // L'onglet commerçant n'apparaît que pour les comptes ayant le rôle 'merchant'.
+  const isMerchant = me?.roles?.includes('merchant') ?? false;
 
   if (!isLoaded) return null;
   if (!isSignedIn) {
@@ -104,6 +111,17 @@ export default function AppLayout() {
           title: 'Signaler',
           tabBarLabel: 'Signaler',
           tabBarIcon: () => <ReportsIcon />,
+        }}
+      />
+
+      {/* Onglet Commerçant — visible uniquement pour les comptes commerçants */}
+      <Tabs.Screen
+        name="commercant"
+        options={{
+          title: 'Marché',
+          tabBarLabel: 'Marché',
+          tabBarIcon: () => <CommercantIcon />,
+          href: isMerchant ? undefined : null,
         }}
       />
 
