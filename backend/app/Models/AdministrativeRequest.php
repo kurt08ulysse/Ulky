@@ -131,6 +131,11 @@ class AdministrativeRequest extends Model implements Payable
         return $this->hasMany(AdministrativeRequestEvent::class)->orderBy('created_at');
     }
 
+    public function attachments(): MorphMany
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
+    }
+
     public function payments(): MorphMany
     {
         return $this->morphMany(Payment::class, 'payable');

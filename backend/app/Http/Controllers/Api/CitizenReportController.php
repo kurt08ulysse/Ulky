@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\HandlesAttachments;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AttachmentResource;
 use App\Http\Resources\CitizenReportResource;
 use App\Models\CitizenReport;
 use Illuminate\Http\JsonResponse;
@@ -18,12 +20,14 @@ use Illuminate\Support\Facades\Gate;
  */
 class CitizenReportController extends Controller
 {
+    use HandlesAttachments;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', CitizenReport::class);
 
         $user = auth()->user();
-        $query = CitizenReport::with('events')->orderBy('created_at', 'desc');
+        $query = CitizenReport::with(['events', 'attachments'])->orderBy('created_at', 'desc');
 
         $isStaff = $user->hasAnyRole(['municipal_agent', 'cashier', 'commune_admin', 'super_admin']);
 
@@ -71,7 +75,7 @@ class CitizenReportController extends Controller
             'commune_id' => $user->commune_id,
         ]);
 
-        return (new CitizenReportResource($report->load('events')))
+        return (new CitizenReportResource($report->load(['events', 'attachments'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -80,7 +84,7 @@ class CitizenReportController extends Controller
     {
         Gate::authorize('view', $citizenReport);
 
-        return new CitizenReportResource($citizenReport->load('events'));
+        return new CitizenReportResource($citizenReport->load(['events', 'attachments']));
     }
 
     /**
@@ -114,7 +118,19 @@ class CitizenReportController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Signalement mis à jour.',
-            'data' => new CitizenReportResource($citizenReport->load('events')),
+            'data' => new CitizenReportResource($citizenReport->load(['events', 'attachments'])),
         ]);
+    }
+
+    /**
+     * Ajoute une pièce jointe (photo/PDF) à son propre signalement.
+     */
+    public function attach(CitizenReport $citizenReport, Request $request): JsonResponse
+    {
+        Gate::authorize('view', $citizenReport);
+
+        $attachment = $this->storeAttachment($citizenReport, $request);
+
+        return (new AttachmentResource($attachment))->response()->setStatusCode(201);
     }
 }
