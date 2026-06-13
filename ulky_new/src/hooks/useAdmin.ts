@@ -6,6 +6,8 @@ import {
   createAdminTaxNotice,
   searchCitizen,
   getAuditLogs,
+  getExpenses,
+  createExpense,
   exportCsv,
 } from '@/services/adminService';
 
@@ -78,6 +80,27 @@ export function useAuditLogs(filters?: {
     queryKey: ['admin', 'audit-logs', filters],
     queryFn: () => getAuditLogs(filters),
     placeholderData: keepPreviousData,
+  });
+}
+
+// ─── Dépenses (comptabilité régisseur) ──────────────────────────────────────
+
+export function useExpenses(filters?: { category?: string; page?: number }) {
+  return useQuery({
+    queryKey: ['admin', 'expenses', filters],
+    queryFn: () => getExpenses(filters),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCreateExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createExpense,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'expenses'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+    },
   });
 }
 

@@ -12,6 +12,11 @@ export type DashboardKpis = {
     month: { amount: number; formatted: string };
     total: { amount: number; formatted: string };
   };
+  expenses: {
+    month: { amount: number; formatted: string };
+    total: { amount: number; formatted: string };
+  };
+  net: { amount: number; formatted: string };
   notices_by_status: {
     pending: number;
     paid: number;
@@ -90,6 +95,26 @@ export type AuditLogEntry = {
   created_at: string;
 };
 
+export type Expense = {
+  id: number;
+  reference: string;
+  category: string;
+  label: string;
+  amount: number;
+  amount_formatted: string;
+  spent_at: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type CreateExpenseInput = {
+  category: string;
+  label: string;
+  amount: number;
+  spent_at?: string;
+  note?: string;
+};
+
 export type PaginatedResponse<T> = {
   data: T[];
   current_page: number;
@@ -154,6 +179,17 @@ export async function getAuditLogs(params?: {
 }): Promise<PaginatedResponse<AuditLogEntry>> {
   const res = await api.get(`${ADMIN_BASE}/audit-logs`, { params });
   return res.data as PaginatedResponse<AuditLogEntry>;
+}
+
+/** Dépenses de la commune (régisseur). */
+export async function getExpenses(params?: { category?: string; page?: number }): Promise<PaginatedResponse<Expense>> {
+  const res = await api.get(`${ADMIN_BASE}/expenses`, { params });
+  return res.data as PaginatedResponse<Expense>;
+}
+
+export async function createExpense(data: CreateExpenseInput): Promise<Expense> {
+  const res = await api.post(`${ADMIN_BASE}/expenses`, data);
+  return res.data.data as Expense;
 }
 
 /**
