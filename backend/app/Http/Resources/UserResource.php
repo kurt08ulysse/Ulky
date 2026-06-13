@@ -16,6 +16,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'taxpayer_type' => $this->taxpayer_type,
+            'merchant_number' => $this->merchant_number,
             'roles' => $this->getRoleNames(),
             'commune_id' => $this->commune_id,
             'created_at' => $this->created_at?->toIso8601String(),

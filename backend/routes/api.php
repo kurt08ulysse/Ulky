@@ -73,6 +73,9 @@ Route::prefix('v1/admin')
         // Recherche de citoyen par téléphone (debounce côté client)
         Route::get('citizens/search', [AdminController::class, 'searchCitizen']);
 
+        // Promotion d'un citoyen au statut commerçant (rôle + numéro)
+        Route::post('merchants', [AdminController::class, 'promoteMerchant']);
+
         // Journal d'audit
         Route::get('audit-logs', [AdminController::class, 'auditLogs']);
 

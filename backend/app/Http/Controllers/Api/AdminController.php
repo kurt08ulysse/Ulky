@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminTaxNoticeResource;
+use App\Http\Resources\UserResource;
 use App\Models\AuditLog;
 use App\Models\Payment;
 use App\Models\StallRent;
 use App\Models\Tax;
 use App\Models\TaxNotice;
 use App\Models\User;
+use App\Services\MerchantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -232,6 +234,36 @@ class AdminController extends Controller
         return (new AdminTaxNoticeResource($notice->load(['tax', 'user'])))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * POST /api/v1/admin/merchants
+     *
+     * Promeut un citoyen au statut commerçant (rôle 'merchant' + numéro auto).
+     * Décision métier : c'est la mairie qui valide, jamais l'utilisateur lui-même.
+     */
+    public function promoteMerchant(Request $request, MerchantService $merchants): JsonResponse
+    {
+        $validated = $request->validate(['phone' => 'required|string']);
+
+        $user = $this->scopeToCommune(User::query())
+            ->where('phone', $validated['phone'])
+            ->first();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun contribuable trouvé avec ce numéro de téléphone.',
+            ], 404);
+        }
+
+        $merchants->ensureMerchant($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commerçant enregistré.',
+            'data' => new UserResource($user->fresh()),
+        ]);
     }
 
     /* -----------------------------------------------------------------------
