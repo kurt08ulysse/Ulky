@@ -29,6 +29,7 @@ class User extends Authenticatable implements FilamentUser
         'phone',
         'password',
         'taxpayer_type',
+        'merchant_number',
         'commune_id',
     ];
 

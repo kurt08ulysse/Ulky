@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminTaxNoticeResource;
+use App\Http\Resources\UserResource;
 use App\Models\AuditLog;
+use App\Models\Expense;
 use App\Models\Payment;
+use App\Models\StallRent;
 use App\Models\Tax;
 use App\Models\TaxNotice;
 use App\Models\User;
+use App\Services\MerchantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,15 +47,22 @@ class AdminController extends Controller
         $thisWeek = Carbon::now()->startOfWeek();
         $thisMonth = Carbon::now()->startOfMonth();
 
-        // Cloisonnement multi-commune : les paiements sont rattachés à un avis,
-        // donc on filtre via la relation taxNotice ; les avis directement.
+        // Cloisonnement multi-commune : un paiement règle un avis de taxe OU un
+        // loyer (relation polymorphe payable) ; les deux portent commune_id.
+        // Les recettes agrègent donc taxes + loyers de la commune.
+        $payableTypes = [TaxNotice::class, StallRent::class];
         $paymentCommune = fn (Builder $q) => $this->scopeToCommune($q);
 
         // Encaissements en centimes (paiements successful uniquement)
-        $collectedToday = Payment::successful()->whereHas('taxNotice', $paymentCommune)->whereDate('created_at', $today)->sum('amount');
-        $collectedWeek = Payment::successful()->whereHas('taxNotice', $paymentCommune)->where('created_at', '>=', $thisWeek)->sum('amount');
-        $collectedMonth = Payment::successful()->whereHas('taxNotice', $paymentCommune)->where('created_at', '>=', $thisMonth)->sum('amount');
-        $collectedTotal = Payment::successful()->whereHas('taxNotice', $paymentCommune)->sum('amount');
+        $collectedToday = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->whereDate('created_at', $today)->sum('amount');
+        $collectedWeek = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->where('created_at', '>=', $thisWeek)->sum('amount');
+        $collectedMonth = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->where('created_at', '>=', $thisMonth)->sum('amount');
+        $collectedTotal = Payment::successful()->whereHasMorph('payable', $payableTypes, $paymentCommune)->sum('amount');
+
+        // Dépenses (comptabilité régisseur) + solde net.
+        $expensesMonth = $this->scopeToCommune(Expense::query())->where('spent_at', '>=', $thisMonth)->sum('amount');
+        $expensesTotal = $this->scopeToCommune(Expense::query())->sum('amount');
+        $netTotal = $collectedTotal - $expensesTotal;
 
         // Nombre d'avis par statut
         $noticesByStatus = $this->scopeToCommune(TaxNotice::query())
@@ -79,7 +90,7 @@ class AdminController extends Controller
         // Encaissements par jour sur les 7 derniers jours (pour le graphique)
         $last7Days = collect(range(6, 0))->map(fn ($i) => Carbon::today()->subDays($i));
         $dailyData = Payment::successful()
-            ->whereHas('taxNotice', $paymentCommune)
+            ->whereHasMorph('payable', $payableTypes, $paymentCommune)
             ->where('created_at', '>=', Carbon::today()->subDays(6)->startOfDay())
             ->select(DB::raw('DATE(created_at) as day'), DB::raw('sum(amount) as total'))
             ->groupBy('day')
@@ -98,6 +109,11 @@ class AdminController extends Controller
                 'month' => ['amount' => $collectedMonth,  'formatted' => number_format($collectedMonth / 100, 0, ',', ' ').' FCFA'],
                 'total' => ['amount' => $collectedTotal,  'formatted' => number_format($collectedTotal / 100, 0, ',', ' ').' FCFA'],
             ],
+            'expenses' => [
+                'month' => ['amount' => $expensesMonth, 'formatted' => number_format($expensesMonth / 100, 0, ',', ' ').' FCFA'],
+                'total' => ['amount' => $expensesTotal, 'formatted' => number_format($expensesTotal / 100, 0, ',', ' ').' FCFA'],
+            ],
+            'net' => ['amount' => $netTotal, 'formatted' => number_format($netTotal / 100, 0, ',', ' ').' FCFA'],
             'notices_by_status' => [
                 'pending' => (int) ($noticesByStatus['pending'] ?? 0),
                 'paid' => (int) ($noticesByStatus['paid'] ?? 0),
@@ -229,6 +245,36 @@ class AdminController extends Controller
         return (new AdminTaxNoticeResource($notice->load(['tax', 'user'])))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * POST /api/v1/admin/merchants
+     *
+     * Promeut un citoyen au statut commerçant (rôle 'merchant' + numéro auto).
+     * Décision métier : c'est la mairie qui valide, jamais l'utilisateur lui-même.
+     */
+    public function promoteMerchant(Request $request, MerchantService $merchants): JsonResponse
+    {
+        $validated = $request->validate(['phone' => 'required|string']);
+
+        $user = $this->scopeToCommune(User::query())
+            ->where('phone', $validated['phone'])
+            ->first();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun contribuable trouvé avec ce numéro de téléphone.',
+            ], 404);
+        }
+
+        $merchants->ensureMerchant($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commerçant enregistré.',
+            'data' => new UserResource($user->fresh()),
+        ]);
     }
 
     /* -----------------------------------------------------------------------

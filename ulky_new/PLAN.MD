@@ -92,9 +92,28 @@ Critère de sortie : les totaux affichés égalent la somme des paiements confir
 Le MVP n'est pas une liste de modules, c'est un scénario : « Un contribuable identifié par son téléphone paie une taxe municipale par Airtel Money ou Moov Money et reçoit une quittance numérotée, vérifiable par QR code ; le régisseur voit la recette exacte le jour même. » Phases 0 à 4.
 
 
-Phase 5 — Démarches administratives
+─── ÉTAT D'AVANCEMENT (mis à jour 2026-06-13) ───
+Phases 0,1,2 : LIVRÉES.
+Phase 3 (Paiement & quittance) : LIVRÉE côté backend — Mobile Money SingPay, webhook
+  idempotent + confirmation serveur, quittance numérotée PDF/QR, audit append-only,
+  réconciliation quotidienne (payments:reconcile). Reste : e2e sandbox sur staging.
+Phase 4 (Tableau de bord) : LIVRÉE côté backend — KPIs/graphique/export, back-office
+  Filament /admin, test « totaux = somme des paiements confirmés ».
+→ MVP code-complet (CI verte). Restent à démontrer en staging : paiement réel sandbox
+  et restauration de sauvegarde.
+Phase 5 : EN COURS — socle démarches + backend marchés/loyers livrés (voir ci-dessous).
+Phase 7 : amorcée — audit sécurité, isolation par utilisateur, cloisonnement commune,
+  réparation CI (cf. SECURITY_AUDIT.md à la racine).
+
+
+Phase 5 — Démarches administratives  [EN COURS — socle backend livré le 2026-06-13]
 
 Dépôt de demande, téléversement de pièces (stockage décidé en exception), workflow d'états du traitement, notifications push (expo-notifications) et SMS.
+
+Livré : modèle + référence unique + machine à états + isolation par citoyen + historique
+append-only + back-office Filament. Également livré (persona commerçant) : marchés /
+emplacements / loyers payables via SingPay, isolation par commerçant, quittances de loyer.
+Différé (reste de la phase) : pièces jointes (dépendance stockage), notifications, écrans mobiles.
 
 Critère de sortie : une demande déposée avec pièce jointe traverse tous les états jusqu'à clôture, avec notification à chaque transition.
 

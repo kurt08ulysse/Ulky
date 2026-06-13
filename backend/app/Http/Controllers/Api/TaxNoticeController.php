@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTaxNoticeRequest;
 use App\Http\Resources\TaxNoticeResource;
-use App\Models\Payment;
 use App\Models\Tax;
 use App\Models\TaxNotice;
 use App\Services\SingPayService;
@@ -116,9 +115,8 @@ class TaxNoticeController extends Controller
             'phone' => 'required|string',
         ]);
 
-        // Crée l'enregistrement de paiement local
-        $payment = Payment::create([
-            'tax_notice_id' => $taxNotice->id,
+        // Crée l'enregistrement de paiement local (rattaché polymorphiquement à l'avis)
+        $payment = $taxNotice->payments()->create([
             'amount' => $taxNotice->total_amount,
             'operator' => $validated['operator'],
             'phone' => $validated['phone'],

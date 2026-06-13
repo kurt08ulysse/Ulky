@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ScopesToCommune;
 use App\Filament\Resources\TaxNoticeResource\Pages;
 use App\Models\TaxNotice;
 use Filament\Forms;
@@ -12,9 +13,11 @@ use Filament\Tables\Table;
 
 class TaxNoticeResource extends Resource
 {
+    use ScopesToCommune;
+
     protected static ?string $model = TaxNotice::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
     public static function form(Form $form): Form
     {

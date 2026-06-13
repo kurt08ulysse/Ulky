@@ -2,13 +2,21 @@
 
 namespace App\Models;
 
+use App\Contracts\Payable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
-class TaxNotice extends Model
+class TaxNotice extends Model implements Payable
 {
+    public function markAsPaid(): void
+    {
+        $this->status = 'paid';
+        $this->paid_at = now();
+    }
+
     protected $fillable = [
         'tax_id',
         'user_id',
@@ -47,15 +55,23 @@ class TaxNotice extends Model
     }
 
     /**
-     * Relation vers le paiement le plus récent.
+     * Tous les paiements (polymorphes) rattachés à cet avis.
+     */
+    public function payments(): MorphMany
+    {
+        return $this->morphMany(Payment::class, 'payable');
+    }
+
+    /**
+     * Paiement le plus récent.
      *
      * Un avis peut comporter plusieurs tentatives (échec puis succès) ;
      * on expose la plus récente, utilisée par le tableau de bord admin
      * et l'export CSV (avec sa quittance éventuelle via payment.receipt).
      */
-    public function payment(): HasOne
+    public function payment(): MorphOne
     {
-        return $this->hasOne(Payment::class)->latestOfMany();
+        return $this->morphOne(Payment::class, 'payable')->latestOfMany();
     }
 
     /**

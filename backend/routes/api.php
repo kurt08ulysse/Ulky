@@ -1,8 +1,13 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\AdministrativeRequestController;
+use App\Http\Controllers\Api\CitizenReportController;
+use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\MarketStallController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SingPayWebhookController;
+use App\Http\Controllers\Api\StallRentController;
 use App\Http\Controllers\Api\TaxController;
 use App\Http\Controllers\Api\TaxNoticeController;
 use App\Http\Controllers\AuthController;
@@ -36,6 +41,25 @@ Route::prefix('v1')->middleware(['clerk.auth', 'throttle:120,1'])->group(functio
     Route::put('tax-notices/{taxNotice}/cancel', [TaxNoticeController::class, 'cancel']);
     Route::post('tax-notices/{taxNotice}/pay', [TaxNoticeController::class, 'pay']);
 
+    // Marchés municipaux — côté commerçant (isolation par occupant)
+    Route::get('my/stalls', [MarketStallController::class, 'mine']);
+    Route::get('my/rents', [StallRentController::class, 'index']);
+    Route::get('rents/{stallRent}', [StallRentController::class, 'show']);
+    Route::post('rents/{stallRent}/pay', [StallRentController::class, 'pay']);
+
+    // Demandes administratives (isolation par citoyen ; transitions réservées au staff)
+    Route::get('requests', [AdministrativeRequestController::class, 'index']);
+    Route::post('requests', [AdministrativeRequestController::class, 'store']);
+    Route::get('requests/{administrativeRequest}', [AdministrativeRequestController::class, 'show']);
+    Route::post('requests/{administrativeRequest}/transition', [AdministrativeRequestController::class, 'transition']);
+    Route::post('requests/{administrativeRequest}/pay', [AdministrativeRequestController::class, 'pay']);
+
+    // Signalements citoyens (isolation par citoyen ; traitement réservé au staff)
+    Route::get('reports', [CitizenReportController::class, 'index']);
+    Route::post('reports', [CitizenReportController::class, 'store']);
+    Route::get('reports/{citizenReport}', [CitizenReportController::class, 'show']);
+    Route::post('reports/{citizenReport}/transition', [CitizenReportController::class, 'transition']);
+
     // Quittances
     Route::get('receipts/{receipt}', [ReceiptController::class, 'download']);
 });
@@ -57,6 +81,13 @@ Route::prefix('v1/admin')
 
         // Recherche de citoyen par téléphone (debounce côté client)
         Route::get('citizens/search', [AdminController::class, 'searchCitizen']);
+
+        // Promotion d'un citoyen au statut commerçant (rôle + numéro)
+        Route::post('merchants', [AdminController::class, 'promoteMerchant']);
+
+        // Comptabilité — dépenses de la commune (régisseur/admin)
+        Route::get('expenses', [ExpenseController::class, 'index']);
+        Route::post('expenses', [ExpenseController::class, 'store']);
 
         // Journal d'audit
         Route::get('audit-logs', [AdminController::class, 'auditLogs']);

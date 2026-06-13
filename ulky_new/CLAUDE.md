@@ -250,5 +250,28 @@ Phase 1 (Identité & Rôles) — LIVRÉE le 2026-06-12 :
 Phase 2 (Référentiel taxes et contribuables) — LIVRÉE le 2026-06-12 :
   Backend (Modèles Tax et TaxNotice, TaxesTableSeeder peuplé avec 39 actes réels, Policies d'accès, API Resources, tests Feature 100% OK).
   Frontend (Intégration du service API, hooks React Query, onglet "Taxes", écran TaxesScreen avec filtre de statut, calcul dynamique du total dû et gestion des rôles pour l'annulation).
-Phase 3 (Paiement et quittance) — à venir.
-Phase 4 (Tableau de bord régisseur) — à venir.
+Phase 3 (Paiement et quittance) — LIVRÉE (backend) le 2026-06-13 :
+  Paiement Mobile Money via SingPay ; machine à états du Payment (pending/successful/failed).
+  Webhook SingPay signé (HMAC) + confirmation serveur→serveur ; idempotent (rejeu testé,
+  taxes ET loyers).
+  Quittance : numérotation séquentielle sans trou par commune/exercice (ReceiptCounter
+  verrouillé en transaction), PDF DomPDF + QR de vérification publique.
+  Journal d'audit append-only (AuditService) sur les opérations financières.
+  Réconciliation quotidienne (commande payments:reconcile, planifiée 02:00) : tout écart
+  est tracé et bloquant. Tests Feature : paiement, webhook sécurité/idempotence, réconciliation.
+  Reste pour clôturer le critère de sortie : e2e réel en sandbox SingPay sur staging.
+Phase 4 (Tableau de bord régisseur/admin) — LIVRÉE (backend) le 2026-06-13 :
+  KPIs (encaissements jour/semaine/mois/total), top taxes, graphique 7 jours, liste paginée
+  recherchable, export CSV (neutralisé contre l'injection de formules). Cloisonné par commune.
+  Test prouvant « totaux dashboard = somme des paiements confirmés » (taxes + loyers).
+  Back-office d'administration Laravel (Filament v3) sur /admin, auth staff séparée de Clerk,
+  accès deny-by-default (commune_admin/super_admin), audit en lecture seule.
+Phase 5 (Démarches administratives + métier commerçant) — EN COURS (socle backend) au 2026-06-13 :
+  Socle paiement polymorphe (Payment.payable : taxe | loyer).
+  Métier commerçant : loyers d'emplacement (StallRent) payables via SingPay, isolation par
+  occupant, quittances de loyer dédiées, back-office Marchés cloisonné commune.
+  Demandes administratives : dépôt + machine à états + isolation par citoyen + historique
+  append-only + back-office Démarches. Différé : pièces jointes (stockage), notifications.
+Sécurité (transverse, Phase 7 amorcée) — 2026-06-13 :
+  Audit complet, isolation par utilisateur durcie (deny-by-default), cloisonnement multi-commune,
+  rate-limiting, réparation de la CI (backend + frontend). Détails dans SECURITY_AUDIT.md.

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\MerchantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +31,19 @@ class MarketStall extends Model
         'occupancy_start_date' => 'date',
         'occupancy_end_date' => 'date',
     ];
+
+    protected static function booted(): void
+    {
+        // Allouer un emplacement à une personne la promeut commerçante (rôle +
+        // numéro), de façon idempotente. C'est la mairie qui déclenche l'allocation.
+        static::saved(function (MarketStall $stall) {
+            // wasChanged est false à la création (c'est wasRecentlyCreated) :
+            // on couvre donc l'allocation initiale ET les ré-affectations.
+            if ($stall->occupant_id && ($stall->wasRecentlyCreated || $stall->wasChanged('occupant_id'))) {
+                app(MerchantService::class)->ensureMerchant($stall->occupant);
+            }
+        });
+    }
 
     public function market(): BelongsTo
     {

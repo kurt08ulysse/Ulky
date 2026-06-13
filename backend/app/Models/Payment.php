@@ -4,13 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Payment extends Model
 {
     protected $fillable = [
-        'tax_notice_id',
         'transaction_id',
         'amount',
         'operator',
@@ -24,11 +23,13 @@ class Payment extends Model
     ];
 
     /**
-     * Relation avec l'avis de taxe.
+     * Objet réglé par ce paiement : un avis de taxe (TaxNotice) ou un
+     * loyer d'emplacement (StallRent). Toute « facture » payable expose
+     * au minimum : status, paid_at, amount, commune_id, et son bénéficiaire.
      */
-    public function taxNotice(): BelongsTo
+    public function payable(): MorphTo
     {
-        return $this->belongsTo(TaxNotice::class);
+        return $this->morphTo();
     }
 
     /**

@@ -57,7 +57,13 @@ Monorepo, `.gitignore` / `.gitattributes`, GitHub Actions (`ci.yml`, `deploy.yml
 
 ---
 
-## 🟡 Phase 3 — Paiement (SingPay) & Quittance — CORRIGÉE LE 2026-06-12
+## ✅ Phase 3 — Paiement (SingPay) & Quittance — LIVRÉE (backend) — MAJ 2026-06-13
+
+> MAJ 2026-06-13 : ajout de la **réconciliation quotidienne** (`php artisan payments:reconcile`,
+> planifiée à 02:00) — confirme chaque paiement local auprès de SingPay, trace tout écart
+> (`reconciliation.discrepancy`) et sort en échec si écart (alerte de supervision). Idempotence
+> du webhook désormais prouvée pour les taxes ET les loyers. Reste : e2e réel en sandbox staging.
+
 
 État livré initialement (sans validation sécurité) :
 - Tables `payments`, `receipts`, `receipt_counters`.
@@ -91,7 +97,7 @@ Tant que les points 1-2-3-4 ne sont pas faits, le code corrigé n'est pas en ser
 
 ---
 
-## 🟡 Phase 4 — Tableau de bord Régisseur (en cours — 2026-06-12)
+## ✅ Phase 4 — Tableau de bord Régisseur & back-office — LIVRÉE (backend) le 2026-06-13
 
 ### Backend livré
 
@@ -124,16 +130,42 @@ Endpoints admin : `GET /dashboard`, `GET|POST /tax-notices`, `GET /tax-notices/{
 - **Bouton déconnexion** : `queryClient.clear()` avant `signOut()`, gestion d'erreur avec `Alert`, spinner `loading` sur le bouton pour éviter les doubles clics.
 - **Sécurité SQL** : confirmé que tous les filtres passent par le Query Builder PDO de Laravel — pas d'injection possible.
 
-### Reste à faire pour clore la Phase 4
+### Livré en plus le 2026-06-13
 
-1. Écrire les tests Feature `AdminDashboardTest`, `AdminTaxNoticeTest`, `AdminExportTest`.
-2. Tester l'onglet Admin sur l'émulateur avec un compte `municipal_agent`.
-3. Faire tourner `php artisan migrate` sur la VM (+ `db:seed --class=RolesSeeder` pour le rôle `merchant`).
-4. Déployer le bundle frontend.
+- **Tests Feature** : `AdminDashboardTotalsTest` (totaux = somme des paiements confirmés),
+  `AdminExportCsvTest` (injection CSV neutralisée + relation paiement), `AdminCommuneScopeTest`
+  (cloisonnement multi-commune). Bug corrigé : le dashboard référençait l'ancienne relation
+  `Payment::taxNotice` (cassée par le passage polymorphe) → désormais `whereHasMorph(payable)`.
+- **Back-office d'administration Laravel (Filament v3)** sur `/admin` : ressources Users, Taxes,
+  Avis, Paiements (lecture seule), Quittances, Audit (lecture seule), Marchés, Démarches.
+  Auth staff séparée de Clerk (mot de passe local nullable), accès deny-by-default
+  (commune_admin/super_admin), cloisonnement commune via le trait `ScopesToCommune`.
+
+### Reste à faire côté humain
+
+1. Tester l'onglet Admin mobile sur l'émulateur avec un compte `municipal_agent`.
+2. `php artisan migrate` sur la VM (+ `db:seed`) ; exposer `/admin` uniquement via Tailscale + ajouter la 2FA.
+3. Déployer le bundle frontend.
 
 ---
 
-## 🔜 Phase 5 — Gestion des marchés municipaux (loyers des commerçants)
+## 🟡 Phase 5 — Marchés (loyers) & Démarches administratives — EN COURS (backend LIVRÉ le 2026-06-13)
+
+### Livré le 2026-06-13 (backend, testé, CI verte)
+
+- **Socle paiement polymorphe** : `Payment.payable` (TaxNotice | StallRent) → un seul rail
+  SingPay → quittance. Webhook/quittance/téléchargement généralisés ; idempotence préservée
+  (rejeu loyer testé). Réconciliation quotidienne `payments:reconcile` (Phase 3, écart bloquant).
+- **Métier commerçant** : API `my/stalls`, `my/rents`, `rents/{id}` + `rents/{id}/pay`
+  (isolation stricte par occupant), `StallRentPolicy`, quittances de loyer dédiées
+  (`rent_pdf` / `rent_verify`), back-office Filament « Marchés » cloisonné commune.
+- **Demandes administratives** : `administrative_requests` + `administrative_request_events`
+  (append-only), machine à états, référence unique, isolation par citoyen, API
+  `GET/POST /requests`, `GET /requests/{id}`, `POST /requests/{id}/transition` (staff),
+  back-office Filament « Démarches » cloisonné commune.
+- Différé : pièces jointes (stockage), notifications push/SMS, écrans mobiles.
+
+### Périmètre initial (référence)
 
 ### Socle de données livré (migrations + modèles)
 

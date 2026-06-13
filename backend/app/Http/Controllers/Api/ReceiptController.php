@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdministrativeRequest;
 use App\Models\Receipt;
+use App\Models\StallRent;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -17,12 +19,13 @@ class ReceiptController extends Controller
     public function download(Receipt $receipt): StreamedResponse
     {
         $user = auth()->user();
-        $taxNotice = $receipt->payment->taxNotice;
+        $payable = $receipt->payment->payable;
 
-        // Restriction de sécurité (deny-by-default) : seuls le propriétaire de l'avis
-        // ou un agent/admin municipal peuvent télécharger la quittance. Tout autre
-        // cas (y compris un utilisateur sans rôle) est refusé.
-        $isOwner = $taxNotice->user_id === $user->id;
+        // Restriction de sécurité (deny-by-default) : seuls le propriétaire (contribuable
+        // pour une taxe, commerçant occupant pour un loyer) ou un agent/admin municipal
+        // peuvent télécharger la quittance. Tout autre cas est refusé.
+        $ownerId = $payable instanceof StallRent ? $payable->occupant_id : $payable->user_id;
+        $isOwner = $ownerId === $user->id;
         $isStaff = $user->hasAnyRole(['municipal_agent', 'cashier', 'commune_admin', 'super_admin']);
 
         if (! $isOwner && ! $isStaff) {
@@ -45,19 +48,42 @@ class ReceiptController extends Controller
     public function verify(string $token): View
     {
         $receipt = Receipt::where('qr_code_token', $token)
-            ->with(['payment.taxNotice.user', 'payment.taxNotice.tax'])
+            ->with(['payment.payable'])
             ->first();
 
         if (! $receipt) {
             abort(404, "Quittance invalide ou introuvable. Ce document n'est pas authentique.");
         }
 
+        $payable = $receipt->payment->payable;
+
+        // Le template de vérification diffère selon l'objet réglé.
+        if ($payable instanceof StallRent) {
+            return view('receipts.rent_verify', [
+                'receipt' => $receipt,
+                'payment' => $receipt->payment,
+                'rent' => $payable,
+                'occupant' => $payable->occupant,
+                'stall' => $payable->stall,
+                'market' => $payable->stall?->market,
+            ]);
+        }
+
+        if ($payable instanceof AdministrativeRequest) {
+            return view('receipts.demarche_verify', [
+                'receipt' => $receipt,
+                'payment' => $receipt->payment,
+                'request' => $payable,
+                'user' => $payable->user,
+            ]);
+        }
+
         return view('receipts.verify', [
             'receipt' => $receipt,
             'payment' => $receipt->payment,
-            'taxNotice' => $receipt->payment->taxNotice,
-            'user' => $receipt->payment->taxNotice->user,
-            'tax' => $receipt->payment->taxNotice->tax,
+            'taxNotice' => $payable,
+            'user' => $payable->user,
+            'tax' => $payable->tax,
         ]);
     }
 
