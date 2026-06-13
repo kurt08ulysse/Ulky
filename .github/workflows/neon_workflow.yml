@@ -1,0 +1,100 @@
+name: Neon — base d'aperçu par PR
+
+# Intégration Neon ↔ GitHub.
+# À chaque PR : crée une branche Neon isolée (copie de la base) et y applique les
+# migrations Laravel pour les valider sur du vrai PostgreSQL. À la fermeture de la
+# PR : supprime la branche Neon.
+#
+# Pré-requis (à configurer une seule fois dans GitHub) :
+#   - Secret  NEON_API_KEY     (Neon → Account settings → API keys)
+#   - Variable NEON_PROJECT_ID (Neon → Project settings → General)
+#
+# Ne concerne QUE les bases d'aperçu par PR — pas la production/staging.
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  setup:
+    name: Setup
+    outputs:
+      branch: ${{ steps.branch_name.outputs.current_branch }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+  create_neon_branch:
+    name: Create Neon Branch + migrate
+    needs: setup
+    if: |
+      github.event_name == 'pull_request' && (
+      github.event.action == 'synchronize'
+      || github.event.action == 'opened'
+      || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get branch expiration date (2 semaines)
+        id: get_expiration_date
+        run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+      - name: Create Neon Branch
+        id: create_neon_branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          expires_at: ${{ env.EXPIRES_AT }}
+
+      # ─── Validation des migrations Laravel sur la branche Neon (vrai PostgreSQL) ───
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_pgsql, pgsql, mbstring, xml, ctype, json, bcmath
+          coverage: none
+
+      - name: Install dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Préparer l'environnement
+        working-directory: backend
+        run: |
+          cp .env.ci .env
+          php artisan key:generate --force
+
+      - name: Migrations + seed sur la branche Neon
+        working-directory: backend
+        env:
+          # Connexion à la branche Neon (DB_URL prime sur .env ; voir config/database.php).
+          DB_CONNECTION: pgsql
+          DB_URL: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+        run: |
+          php artisan migrate --force
+          php artisan db:seed --class=RolesSeeder --force
+
+  delete_neon_branch:
+    name: Delete Neon Branch
+    needs: setup
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Neon Branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
