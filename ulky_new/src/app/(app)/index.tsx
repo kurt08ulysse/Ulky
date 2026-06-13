@@ -164,6 +164,37 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {/* Carte — Nos élus */}
+        <Pressable
+          onPress={() => router.push('/officials' as any)}
+          style={({ pressed }) => ({
+            marginHorizontal: spacing.lg,
+            backgroundColor: customColors.surface,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: `${customColors.border}50`,
+            padding: spacing.md,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
+            opacity: pressed ? 0.95 : 1,
+            ...shadows.subtle,
+          })}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#cde5ff', justifyContent: 'center', alignItems: 'center' }}>
+            <Ionicons name="people" size={20} color={customColors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: customColors.primary }}>
+              Nos élus
+            </Text>
+            <Text style={{ fontSize: 12, color: customColors.textSecondary, marginTop: 2 }}>
+              Découvrez le maire et le conseil municipal.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={customColors.secondary} />
+        </Pressable>
+
         {/* Alerte Taxes Fiscale en attente (Backend link) */}
         {pendingNotices.length > 0 && (
           <Pressable
