@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import axios from 'axios';
 
-const fallbackBaseUrl = 'https://stocks-picking-easter-band.trycloudflare.com/api/v1';
+const fallbackBaseUrl = 'https://cables-operating-sunset-registered.trycloudflare.com/api/v1';
 
 const backendUrl =
   (Constants.expoConfig?.extra as { BACKEND_API_URL?: string })?.BACKEND_API_URL ??
