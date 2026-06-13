@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\Tax;
 use App\Models\TaxNotice;
@@ -56,8 +55,7 @@ class ReceiptTest extends TestCase
             'paid_at' => now(),
         ]);
 
-        $payment = Payment::create([
-            'tax_notice_id' => $notice->id,
+        $payment = $notice->payments()->create([
             'amount' => $notice->total_amount,
             'operator' => 'airtel_money',
             'phone' => '+24166000000',

@@ -24,7 +24,8 @@ class ReceiptGeneratorService
      */
     public function generate(Payment $payment): Receipt
     {
-        $taxNotice = $payment->taxNotice;
+        // payable = objet réglé (TaxNotice aujourd'hui ; StallRent en Phase 5 marchés).
+        $taxNotice = $payment->payable;
         $communeId = $taxNotice->commune_id;
         $year = now()->year;
 
@@ -69,7 +70,7 @@ class ReceiptGeneratorService
     protected function generatePdf(Receipt $receipt): string
     {
         $payment = $receipt->payment;
-        $taxNotice = $payment->taxNotice;
+        $taxNotice = $payment->payable;
 
         $data = [
             'receipt' => $receipt,

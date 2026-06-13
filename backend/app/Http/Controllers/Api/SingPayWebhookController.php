@@ -94,14 +94,16 @@ class SingPayWebhookController extends Controller
             $payment->raw_response = $request->all();
             $payment->save();
 
-            $taxNotice = $payment->taxNotice;
-            $taxNotice->status = 'paid';
-            $taxNotice->paid_at = now();
-            $taxNotice->save();
+            // L'objet réglé (avis de taxe ou loyer d'emplacement) passe à "paid".
+            $payable = $payment->payable;
+            $payable->status = 'paid';
+            $payable->paid_at = now();
+            $payable->save();
 
             $this->audit->record('payment.confirmed', $payment, [
                 'transaction_id' => $transactionId,
-                'tax_notice_id' => $taxNotice->id,
+                'payable_type' => $payment->payable_type,
+                'payable_id' => $payment->payable_id,
             ]);
 
             try {

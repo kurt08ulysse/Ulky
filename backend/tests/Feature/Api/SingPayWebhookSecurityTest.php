@@ -48,8 +48,7 @@ class SingPayWebhookSecurityTest extends TestCase
             'status' => 'pending',
         ]);
 
-        return Payment::create([
-            'tax_notice_id' => $notice->id,
+        return $notice->payments()->create([
             'amount' => $notice->total_amount,
             'operator' => 'airtel_money',
             'phone' => '+24166000000',

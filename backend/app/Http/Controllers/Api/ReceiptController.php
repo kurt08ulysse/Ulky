@@ -17,7 +17,7 @@ class ReceiptController extends Controller
     public function download(Receipt $receipt): StreamedResponse
     {
         $user = auth()->user();
-        $taxNotice = $receipt->payment->taxNotice;
+        $taxNotice = $receipt->payment->payable;
 
         // Restriction de sécurité (deny-by-default) : seuls le propriétaire de l'avis
         // ou un agent/admin municipal peuvent télécharger la quittance. Tout autre
@@ -45,19 +45,21 @@ class ReceiptController extends Controller
     public function verify(string $token): View
     {
         $receipt = Receipt::where('qr_code_token', $token)
-            ->with(['payment.taxNotice.user', 'payment.taxNotice.tax'])
+            ->with(['payment.payable'])
             ->first();
 
         if (! $receipt) {
             abort(404, "Quittance invalide ou introuvable. Ce document n'est pas authentique.");
         }
 
+        $payable = $receipt->payment->payable;
+
         return view('receipts.verify', [
             'receipt' => $receipt,
             'payment' => $receipt->payment,
-            'taxNotice' => $receipt->payment->taxNotice,
-            'user' => $receipt->payment->taxNotice->user,
-            'tax' => $receipt->payment->taxNotice->tax,
+            'taxNotice' => $payable,
+            'user' => $payable->user,
+            'tax' => $payable->tax,
         ]);
     }
 

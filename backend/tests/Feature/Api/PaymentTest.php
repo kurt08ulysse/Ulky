@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Payment;
 use App\Models\Tax;
 use App\Models\TaxNotice;
 use App\Models\User;
@@ -90,7 +89,8 @@ class PaymentTest extends TestCase
             ->assertJsonStructure(['success', 'message', 'payment' => ['id', 'transaction_id', 'status']]);
 
         $this->assertDatabaseHas('payments', [
-            'tax_notice_id' => $notice->id,
+            'payable_type' => TaxNotice::class,
+            'payable_id' => $notice->id,
             'operator' => 'airtel_money',
             'phone' => '+24166000000',
             'status' => 'pending',
@@ -148,8 +148,7 @@ class PaymentTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $payment = Payment::create([
-            'tax_notice_id' => $notice->id,
+        $payment = $notice->payments()->create([
             'amount' => $notice->total_amount,
             'operator' => 'airtel_money',
             'phone' => '+24166000000',
