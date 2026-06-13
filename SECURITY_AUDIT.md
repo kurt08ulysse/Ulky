@@ -229,10 +229,19 @@ l'en-tête `Authorization` → 401 sur web). Remplacé par un `fetch` authentifi
 (token Clerk via le nouveau `getAuthToken()` d'`api.ts`) → blob → téléchargement
 via `<a download>`. Le chemin mobile partage désormais le même en-tête propre.
 
-### ⚠️ Observation — toolchain TypeScript frontend cassée (pré-existant)
-`tsc --noEmit` échoue globalement dans cet environnement : `node_modules/expo/
-tsconfig.base.json` (référencé par `extends` dans `tsconfig.json`) est absent, ce
-qui invalide `jsx`/`lib`/types pour **tout** le projet (y compris des fichiers non
-modifiés). Le job CI frontend `tsc` ne peut donc pas passer en l'état,
-indépendamment des changements de sécurité. À corriger séparément (vérifier la
-version d'Expo/TypeScript et le chemin du tsconfig de base).
+### ✅ Réparation des pipelines CI (revue 4)
+La première exécution CI de la PR a révélé deux blocages d'infrastructure
+**pré-existants** (sans lien avec le code de sécurité), désormais corrigés :
+
+- **Backend** : `composer install` échouait (`bootstrap/cache directory must be
+  present and writable`). Les dossiers runtime Laravel non versionnés
+  (`bootstrap/cache`, `storage/framework/{cache,sessions,views}`, `storage/logs`)
+  sont désormais suivis via des `.gitignore` standards.
+- **Frontend** : `npm ci` échouait (`package-lock.json` désynchronisé →
+  `Missing: utf-8-validate`). Lockfile régénéré. L'install incomplète privait
+  aussi Expo de `tsconfig.base.json` (cassant `tsc`) ; résolu par l'install
+  saine. Ajout de la config ESLint officielle Expo (absente du repo) et d'une
+  déclaration `*.css` (NativeWind, TS2882).
+
+Séquences CI rejouées localement de bout en bout : **frontend** `npm ci → tsc →
+eslint --max-warnings=0` verts ; **backend** 39 tests + Pint verts.
