@@ -10,6 +10,7 @@ namespace App\Services;
 use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\ReceiptCounter;
+use App\Models\StallRent;
 use BaconQrCode\Renderer\GDLibRenderer;
 use BaconQrCode\Writer;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -70,19 +71,34 @@ class ReceiptGeneratorService
     protected function generatePdf(Receipt $receipt): string
     {
         $payment = $receipt->payment;
-        $taxNotice = $payment->payable;
+        $payable = $payment->payable;
 
-        $data = [
+        $common = [
             'receipt' => $receipt,
             'payment' => $payment,
-            'taxNotice' => $taxNotice,
-            'user' => $taxNotice->user,
-            'tax' => $taxNotice->tax,
             'verification_url' => $receipt->verification_url,
             'qr_code_url' => $this->buildQrDataUri($receipt->verification_url),
         ];
 
-        $pdf = Pdf::loadView('receipts.pdf', $data);
+        // Le template diffère selon l'objet réglé : taxe vs loyer de marché.
+        if ($payable instanceof StallRent) {
+            $view = 'receipts.rent_pdf';
+            $data = $common + [
+                'rent' => $payable,
+                'occupant' => $payable->occupant,
+                'stall' => $payable->stall,
+                'market' => $payable->stall?->market,
+            ];
+        } else {
+            $view = 'receipts.pdf';
+            $data = $common + [
+                'taxNotice' => $payable,
+                'user' => $payable->user,
+                'tax' => $payable->tax,
+            ];
+        }
+
+        $pdf = Pdf::loadView($view, $data);
 
         $fileName = "receipts/{$receipt->receipt_number}.pdf";
         Storage::disk('public')->put($fileName, $pdf->output());

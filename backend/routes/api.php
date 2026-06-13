@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\MarketStallController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SingPayWebhookController;
+use App\Http\Controllers\Api\StallRentController;
 use App\Http\Controllers\Api\TaxController;
 use App\Http\Controllers\Api\TaxNoticeController;
 use App\Http\Controllers\AuthController;
@@ -35,6 +37,12 @@ Route::prefix('v1')->middleware(['clerk.auth', 'throttle:120,1'])->group(functio
     Route::apiResource('tax-notices', TaxNoticeController::class)->except(['destroy', 'update']);
     Route::put('tax-notices/{taxNotice}/cancel', [TaxNoticeController::class, 'cancel']);
     Route::post('tax-notices/{taxNotice}/pay', [TaxNoticeController::class, 'pay']);
+
+    // Marchés municipaux — côté commerçant (isolation par occupant)
+    Route::get('my/stalls', [MarketStallController::class, 'mine']);
+    Route::get('my/rents', [StallRentController::class, 'index']);
+    Route::get('rents/{stallRent}', [StallRentController::class, 'show']);
+    Route::post('rents/{stallRent}/pay', [StallRentController::class, 'pay']);
 
     // Quittances
     Route::get('receipts/{receipt}', [ReceiptController::class, 'download']);

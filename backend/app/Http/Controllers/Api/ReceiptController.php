@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Receipt;
+use App\Models\StallRent;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -17,12 +18,13 @@ class ReceiptController extends Controller
     public function download(Receipt $receipt): StreamedResponse
     {
         $user = auth()->user();
-        $taxNotice = $receipt->payment->payable;
+        $payable = $receipt->payment->payable;
 
-        // Restriction de sécurité (deny-by-default) : seuls le propriétaire de l'avis
-        // ou un agent/admin municipal peuvent télécharger la quittance. Tout autre
-        // cas (y compris un utilisateur sans rôle) est refusé.
-        $isOwner = $taxNotice->user_id === $user->id;
+        // Restriction de sécurité (deny-by-default) : seuls le propriétaire (contribuable
+        // pour une taxe, commerçant occupant pour un loyer) ou un agent/admin municipal
+        // peuvent télécharger la quittance. Tout autre cas est refusé.
+        $ownerId = $payable instanceof StallRent ? $payable->occupant_id : $payable->user_id;
+        $isOwner = $ownerId === $user->id;
         $isStaff = $user->hasAnyRole(['municipal_agent', 'cashier', 'commune_admin', 'super_admin']);
 
         if (! $isOwner && ! $isStaff) {
@@ -53,6 +55,18 @@ class ReceiptController extends Controller
         }
 
         $payable = $receipt->payment->payable;
+
+        // Le template de vérification diffère selon l'objet réglé : taxe vs loyer.
+        if ($payable instanceof StallRent) {
+            return view('receipts.rent_verify', [
+                'receipt' => $receipt,
+                'payment' => $receipt->payment,
+                'rent' => $payable,
+                'occupant' => $payable->occupant,
+                'stall' => $payable->stall,
+                'market' => $payable->stall?->market,
+            ]);
+        }
 
         return view('receipts.verify', [
             'receipt' => $receipt,
