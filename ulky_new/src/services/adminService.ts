@@ -17,17 +17,17 @@ export type DashboardKpis = {
     paid: number;
     cancelled: number;
   };
-  top_taxes: Array<{
+  top_taxes: {
     tax_name: string;
     count: number;
     total: number;
     total_formatted: string;
-  }>;
-  chart_data: Array<{
+  }[];
+  chart_data: {
     date: string;
     label: string;
     total: number;
-  }>;
+  }[];
 };
 
 export type CitizenPreview = {

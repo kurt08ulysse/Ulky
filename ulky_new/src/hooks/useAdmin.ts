@@ -7,7 +7,6 @@ import {
   searchCitizen,
   getAuditLogs,
   exportCsv,
-  type AdminTaxNotice,
 } from '@/services/adminService';
 
 // ─── Dashboard KPIs ──────────────────────────────────────────────────────────
