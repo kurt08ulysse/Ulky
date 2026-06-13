@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable, Text, View } from 'react-native';
 import { Badge, Button, Card, Input } from '@/components';
 import { useCreateReport, useReports } from '@/hooks/useReports';
-import type { ReportCategory, ReportStatus } from '@/services/reportService';
+import type { CitizenReport, ReportCategory, ReportStatus } from '@/services/reportService';
 import { colors, spacing, typography } from '@/theme';
 
 const CATEGORIES: { key: ReportCategory; label: string; icon: string }[] = [
@@ -75,11 +75,8 @@ export default function ReportsScreen() {
     );
   }
 
-  return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background.subtle }}
-      contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
-    >
+  const header = (
+    <View style={{ gap: spacing.lg }}>
       <View style={{ gap: spacing.xs }}>
         <Text style={{ ...typography.h2, color: colors.text.primary }}>Signaler un problème</Text>
         <Text style={{ ...typography.body, color: colors.text.secondary }}>
@@ -87,10 +84,8 @@ export default function ReportsScreen() {
         </Text>
       </View>
 
-      {/* Formulaire */}
       <Card variant="elevated">
         <Text style={{ ...typography.h3, color: colors.text.primary }}>Nouveau signalement</Text>
-
         <Text style={{ ...typography.caption, color: colors.text.secondary, fontWeight: '600' }}>
           Catégorie
         </Text>
@@ -155,41 +150,48 @@ export default function ReportsScreen() {
         </Button>
       </Card>
 
-      {/* Liste de mes signalements */}
-      <View style={{ gap: spacing.md }}>
-        <Text style={{ ...typography.h3, color: colors.text.primary }}>Mes signalements</Text>
+      <Text style={{ ...typography.h3, color: colors.text.primary }}>Mes signalements</Text>
+    </View>
+  );
 
-        {isLoading ? (
+  function renderItem({ item }: { item: CitizenReport }) {
+    const status = STATUS_MAP[item.status];
+    const cat = CATEGORIES.find((c) => c.key === item.category);
+    return (
+      <Card>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ ...typography.caption, color: colors.text.tertiary }}>
+            {cat ? `${cat.icon} ${cat.label}` : item.category} · {item.reference}
+          </Text>
+          <Badge label={status.label} variant={status.variant} />
+        </View>
+        <Text style={{ ...typography.bodyLg, color: colors.text.primary, fontWeight: '600' }}>
+          {item.title}
+        </Text>
+        {item.address ? (
+          <Text style={{ ...typography.caption, color: colors.text.secondary }}>📍 {item.address}</Text>
+        ) : null}
+      </Card>
+    );
+  }
+
+  return (
+    <FlatList
+      style={{ flex: 1, backgroundColor: colors.background.subtle }}
+      contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
+      data={reports ?? []}
+      keyExtractor={(item) => String(item.id)}
+      ListHeaderComponent={header}
+      ListEmptyComponent={
+        isLoading ? (
           <ActivityIndicator color={colors.primary[600]} />
-        ) : !reports || reports.length === 0 ? (
+        ) : (
           <Text style={{ ...typography.body, color: colors.text.tertiary }}>
             Vous n'avez encore signalé aucun problème.
           </Text>
-        ) : (
-          reports.map((report) => {
-            const status = STATUS_MAP[report.status];
-            const cat = CATEGORIES.find((c) => c.key === report.category);
-            return (
-              <Card key={report.id}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ ...typography.caption, color: colors.text.tertiary }}>
-                    {cat ? `${cat.icon} ${cat.label}` : report.category} · {report.reference}
-                  </Text>
-                  <Badge label={status.label} variant={status.variant} />
-                </View>
-                <Text style={{ ...typography.bodyLg, color: colors.text.primary, fontWeight: '600' }}>
-                  {report.title}
-                </Text>
-                {report.address ? (
-                  <Text style={{ ...typography.caption, color: colors.text.secondary }}>
-                    📍 {report.address}
-                  </Text>
-                ) : null}
-              </Card>
-            );
-          })
-        )}
-      </View>
-    </ScrollView>
+        )
+      }
+      renderItem={renderItem}
+    />
   );
 }

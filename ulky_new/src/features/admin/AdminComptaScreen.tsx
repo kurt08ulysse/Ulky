@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable, Text, View } from 'react-native';
 import { Button, Card, Input } from '@/components';
 import { useAdminDashboard, useCreateExpense, useExpenses } from '@/hooks/useAdmin';
+import type { Expense } from '@/services/adminService';
 import { colors, spacing, typography } from '@/theme';
 
 const CATEGORIES: { key: string; label: string }[] = [
@@ -68,12 +69,8 @@ export default function AdminComptaScreen() {
     );
   }
 
-  return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background.subtle }}
-      contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
-    >
-      {/* Synthèse recettes / dépenses / net */}
+  const header = (
+    <View style={{ gap: spacing.lg }}>
       <Card variant="elevated">
         <Text style={{ ...typography.h3, color: colors.text.primary }}>Synthèse</Text>
         <KpiRow label="Recettes (total)" value={kpis?.collected.total.formatted ?? '—'} color={colors.success[600]} />
@@ -82,7 +79,6 @@ export default function AdminComptaScreen() {
         <KpiRow label="Solde net" value={kpis?.net.formatted ?? '—'} color={colors.primary[600]} />
       </Card>
 
-      {/* Saisie d'une dépense */}
       <Card variant="elevated">
         <Text style={{ ...typography.h3, color: colors.text.primary }}>Nouvelle dépense</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -129,35 +125,47 @@ export default function AdminComptaScreen() {
         </Button>
       </Card>
 
-      {/* Liste des dépenses */}
-      <View style={{ gap: spacing.md }}>
-        <Text style={{ ...typography.h3, color: colors.text.primary }}>Dépenses récentes</Text>
-        {isError ? (
+      <Text style={{ ...typography.h3, color: colors.text.primary }}>Dépenses récentes</Text>
+    </View>
+  );
+
+  function renderItem({ item }: { item: Expense }) {
+    return (
+      <Card>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ ...typography.caption, color: colors.text.tertiary }}>
+            {item.category} · {item.spent_at ?? ''}
+          </Text>
+          <Text style={{ ...typography.bodyLg, color: colors.error[600], fontWeight: '700' }}>
+            {item.amount_formatted}
+          </Text>
+        </View>
+        <Text style={{ ...typography.body, color: colors.text.primary }}>{item.label}</Text>
+      </Card>
+    );
+  }
+
+  return (
+    <FlatList
+      style={{ flex: 1, backgroundColor: colors.background.subtle }}
+      contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
+      data={expenses?.data ?? []}
+      keyExtractor={(item) => String(item.id)}
+      ListHeaderComponent={header}
+      ListEmptyComponent={
+        isError ? (
           <Text style={{ ...typography.body, color: colors.text.tertiary }}>
             Accès aux dépenses réservé au régisseur.
           </Text>
         ) : isLoading ? (
           <ActivityIndicator color={colors.primary[600]} />
-        ) : !expenses || expenses.data.length === 0 ? (
+        ) : (
           <Text style={{ ...typography.body, color: colors.text.tertiary }}>
             Aucune dépense enregistrée.
           </Text>
-        ) : (
-          expenses.data.map((expense) => (
-            <Card key={expense.id}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ ...typography.caption, color: colors.text.tertiary }}>
-                  {expense.category} · {expense.spent_at ?? ''}
-                </Text>
-                <Text style={{ ...typography.bodyLg, color: colors.error[600], fontWeight: '700' }}>
-                  {expense.amount_formatted}
-                </Text>
-              </View>
-              <Text style={{ ...typography.body, color: colors.text.primary }}>{expense.label}</Text>
-            </Card>
-          ))
-        )}
-      </View>
-    </ScrollView>
+        )
+      }
+      renderItem={renderItem}
+    />
   );
 }
