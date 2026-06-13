@@ -90,16 +90,21 @@ class ClerkAuthenticate
      */
     private function resolveKeys(): Key|array
     {
-        // Mode test symétrique (HS256) — injecté via CLERK_TESTING_SECRET
-        $testingSecret = config('services.clerk.testing_secret');
-        if ($testingSecret) {
-            return new Key($testingSecret, 'HS256');
-        }
+        // Les modes de test (HS256 symétrique ou JWKS injectés) ne sont JAMAIS
+        // honorés en production : défense en profondeur contre une mauvaise
+        // configuration qui activerait un bypass de signature.
+        if (! app()->environment('production')) {
+            // Mode test symétrique (HS256) — injecté via CLERK_TESTING_SECRET
+            $testingSecret = config('services.clerk.testing_secret');
+            if ($testingSecret) {
+                return new Key($testingSecret, 'HS256');
+            }
 
-        // Mode test JWKS (RS256) — injecté via CLERK_TESTING_JWKS (JSON)
-        $testingJwks = config('services.clerk.testing_jwks');
-        if ($testingJwks) {
-            return JWK::parseKeySet(json_decode($testingJwks, true));
+            // Mode test JWKS (RS256) — injecté via CLERK_TESTING_JWKS (JSON)
+            $testingJwks = config('services.clerk.testing_jwks');
+            if ($testingJwks) {
+                return JWK::parseKeySet(json_decode($testingJwks, true));
+            }
         }
 
         // Production : JWKS récupérés depuis Clerk, mis en cache 5 minutes

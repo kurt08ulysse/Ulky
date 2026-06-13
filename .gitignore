@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+# .env.ci ne contient que des valeurs mockées (aucun secret réel) et doit être
+# versionné : le workflow CI le copie vers .env (cp .env.ci .env).
+!backend/.env.ci
 
 # ─── Frontend (ulky_new/) ──────────────────────────────────────────────────
 ulky_new/node_modules/

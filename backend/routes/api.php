@@ -24,7 +24,7 @@ Route::post('webhooks/singpay', [SingPayWebhookController::class, 'handle'])
  * API v1 — toutes les routes protégées par le guard Clerk natif.
  * Le middleware ClerkAuthenticate vérifie le JWT à chaque requête.
  */
-Route::prefix('v1')->middleware('clerk.auth')->group(function () {
+Route::prefix('v1')->middleware(['clerk.auth', 'throttle:120,1'])->group(function () {
     Route::prefix('auth')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
