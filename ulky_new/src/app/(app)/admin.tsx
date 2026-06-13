@@ -5,13 +5,15 @@ import { getMe } from '@/services/auth';
 import AdminDashboardScreen from '@/features/admin/AdminDashboardScreen';
 import AdminNoticesScreen from '@/features/admin/AdminNoticesScreen';
 import AdminAuditScreen from '@/features/admin/AdminAuditScreen';
+import AdminComptaScreen from '@/features/admin/AdminComptaScreen';
 import { colors, spacing, typography } from '@/theme';
 
-type AdminTab = 'dashboard' | 'notices' | 'audit';
+type AdminTab = 'dashboard' | 'notices' | 'compta' | 'audit';
 
 const TABS: { key: AdminTab; label: string; icon: string }[] = [
   { key: 'dashboard', label: 'Tableau de bord', icon: '📊' },
   { key: 'notices',   label: 'Avis de taxes',   icon: '📋' },
+  { key: 'compta',    label: 'Comptabilité',    icon: '💰' },
   { key: 'audit',     label: 'Audit',            icon: '🔐' },
 ];
 
@@ -64,6 +66,7 @@ export default function AdminScreen() {
       <View style={styles.content}>
         {activeTab === 'dashboard' && <AdminDashboardScreen />}
         {activeTab === 'notices'   && <AdminNoticesScreen />}
+        {activeTab === 'compta'    && <AdminComptaScreen />}
         {activeTab === 'audit'     && <AdminAuditScreen />}
       </View>
     </View>
