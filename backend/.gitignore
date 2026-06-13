@@ -3,6 +3,11 @@
 .env
 .env.backup
 .env.production
+
+# Assets Filament publiés — régénérés par `php artisan filament:upgrade`
+# (hook post-autoload-dump de Composer), donc non versionnés.
+/public/css/filament
+/public/js/filament
 .phpactor.json
 .phpunit.result.cache
 /.fleet

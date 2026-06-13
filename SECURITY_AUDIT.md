@@ -245,3 +245,35 @@ La première exécution CI de la PR a révélé deux blocages d'infrastructure
 
 Séquences CI rejouées localement de bout en bout : **frontend** `npm ci → tsc →
 eslint --max-warnings=0` verts ; **backend** 39 tests + Pint verts.
+
+---
+
+## 8. Back-office d'administration Laravel (Filament)
+
+Ajout d'un panneau d'administration web **`/admin`** (Filament v3) pour superviser
+l'application côté serveur, distinct de l'app mobile.
+
+### Posture de sécurité (deny-by-default)
+- **Authentification du personnel séparée de Clerk** : colonne `password`
+  **nullable** (migration dédiée) ; seuls les comptes du personnel en possèdent
+  un. La connexion citoyen (Clerk, sans mot de passe) est **inchangée**.
+- **Contrôle d'accès** : `User::canAccessPanel()` (contrat `FilamentUser`)
+  exige un mot de passe **et** le rôle `commune_admin` ou `super_admin`.
+  Citoyens, commerçants et agents simples sont refusés (403). Testé
+  (`BackofficeAccessTest` : anonyme → login, citoyen → 403, agent → 403,
+  super_admin → 200).
+- **Compte staff piloté par l'environnement** (`StaffAdminSeeder`) :
+  `BACKOFFICE_ADMIN_EMAIL` / `BACKOFFICE_ADMIN_PASSWORD` ; **aucun mot de passe
+  par défaut en production**.
+- **Mots de passe hachés** (cast `hashed`), masqués en sérialisation.
+- **Journal d'audit en lecture seule** dans le back-office (création/édition/
+  suppression désactivées) — respect de l'intégrité append-only.
+- **Utilisateurs non supprimables** depuis le panneau (politique : anonymisation
+  via webhook, pas de suppression destructive).
+
+### ⚠️ Recommandations d'exploitation (à appliquer au déploiement)
+- **Exposer `/admin` uniquement via le réseau privé Tailscale** (déjà en place
+  pour la VM) — ne pas le publier sur Internet. Défense en profondeur.
+- Ajouter la **2FA** au back-office (plugin Filament / Laravel Fortify) :
+  non incluse dans Filament v3 core — à brancher avant mise en production.
+- Définir `BACKOFFICE_ADMIN_EMAIL/PASSWORD` forts en production.
